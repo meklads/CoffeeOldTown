@@ -1,30 +1,16 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Zap, Image as ImageIcon, RefreshCw, AlertCircle, Activity, Fingerprint, Plus, Key } from 'lucide-react';
+import { Zap, Image as ImageIcon, RefreshCw, AlertCircle, Activity, Fingerprint } from 'lucide-react';
 import { SectionId } from '../types.ts';
 import { analyzeMealImage } from '../services/geminiService.ts';
 import { useApp } from '../context/AppContext.tsx';
 import { translations } from '../translations.ts';
-
-// Fix: Define AIStudio interface to match the expected global type and resolve declaration conflicts
-interface AIStudio {
-  hasSelectedApiKey: () => Promise<boolean>;
-  openSelectKey: () => Promise<void>;
-}
-
-declare global {
-  interface Window {
-    // Fix: Using the named AIStudio interface and matching potential optional modifier to avoid "identical modifiers" error
-    aistudio?: AIStudio;
-  }
-}
 
 const Hero: React.FC = () => {
   const { incrementScans, setLastAnalysisResult, lastAnalysisResult, language } = useApp();
   const [image, setImage] = useState<string | null>(null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string>('');
-  const [isQuotaError, setIsQuotaError] = useState(false);
   const [progress, setProgress] = useState(0);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -64,26 +50,10 @@ const Hero: React.FC = () => {
     });
   };
 
-  const handleOpenKeyDialog = async () => {
-    try {
-      if (window.aistudio) {
-        await window.aistudio.openSelectKey();
-        setStatus('idle');
-        setErrorMessage('');
-        setIsQuotaError(false);
-        // After selecting key, try analyzing again if image exists
-        if (image) handleAnalyze();
-      }
-    } catch (err) {
-      console.error("Failed to open key dialog:", err);
-    }
-  };
-
   const handleAnalyze = async () => {
     if (!image || status === 'loading') return;
     setStatus('loading');
     setErrorMessage('');
-    setIsQuotaError(false);
     setLastAnalysisResult(null);
     try {
       const compressedImage = await compressImage(image);
@@ -100,16 +70,7 @@ const Hero: React.FC = () => {
         }, 800);
       } else { throw new Error("EMPTY"); }
     } catch (err: any) {
-      console.error("Scanner Link Error:", err);
-      const isQuota = err.message?.includes('QUOTA') || err.message?.includes('429');
-      setIsQuotaError(isQuota);
-      
-      let msg = language === 'ar' ? 'فشل الاتصال: يرجى المحاولة لاحقاً.' : 'Sync Failed: Please retry.';
-      if (isQuota) {
-        msg = language === 'ar' ? 'تم استهلاك حصة النظام بالكامل.' : 'System Quota Exhausted.';
-      }
-      
-      setErrorMessage(msg);
+      setErrorMessage(language === 'ar' ? 'فشل الاتصال: يرجى المحاولة لاحقاً.' : 'Sync Failed: Please retry.');
       setStatus('error');
     }
   };
@@ -121,8 +82,6 @@ const Hero: React.FC = () => {
       reader.onloadend = () => {
         setImage(reader.result as string);
         setStatus('idle');
-        setErrorMessage('');
-        setIsQuotaError(false);
         setLastAnalysisResult(null);
       };
       reader.readAsDataURL(file);
@@ -130,173 +89,148 @@ const Hero: React.FC = () => {
   };
 
   return (
-    <section id={SectionId.PHASE_01_SCAN} className="relative min-h-screen bg-brand-light dark:bg-brand-dark pt-24 pb-16 flex items-center transition-colors duration-500 overflow-hidden">
+    <section id={SectionId.PHASE_01_SCAN} className="relative min-h-screen bg-brand-light dark:bg-brand-dark pt-32 pb-20 flex items-center transition-colors duration-500 overflow-hidden">
       
-      <div className="absolute inset-0 opacity-[0.02] dark:opacity-[0.04] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, #C2A36B 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+      {/* Bio-Digital Background Pattern */}
+      <div className="absolute inset-0 opacity-[0.015] dark:opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, #C2A36B 1px, transparent 1px)', backgroundSize: '50px 50px' }} />
       
-      <div className="max-w-7xl mx-auto px-6 w-full relative z-10">
-        <div className="flex flex-col lg:grid lg:grid-cols-12 gap-12 lg:gap-20 items-center">
-          
-          <div className="hidden lg:block lg:col-span-5 space-y-8 animate-fade-in">
-             <div className="inline-flex items-center gap-3 px-5 py-2 bg-brand-primary/10 text-brand-primary rounded-full border border-brand-primary/10">
-                <div className="w-1.5 h-1.5 rounded-full bg-brand-primary animate-pulse" />
-                <span className="text-[9px] font-black uppercase tracking-[0.5em]">{t.badge}</span>
-             </div>
-             <div className="space-y-6">
-                <h1 className="text-6xl xl:text-8xl font-serif font-bold text-brand-dark dark:text-white leading-[0.9] tracking-tighter">
-                   {t.title} <br />
-                   <span className="text-brand-primary italic font-normal">{t.subtitle}</span>
-                </h1>
-                <p className="text-brand-dark/40 dark:text-white/30 text-xl font-medium italic max-w-md leading-relaxed border-l-2 border-brand-primary/20 pl-8">
-                   {t.desc}
-                </p>
-             </div>
-             {image && status !== 'loading' && (
-                <button 
-                  onClick={handleAnalyze}
-                  className="px-14 py-6 bg-brand-dark text-white rounded-full font-black text-[11px] uppercase tracking-[0.6em] hover:bg-brand-primary transition-all flex items-center gap-4"
-                >
-                  INITIALIZE SCAN <Zap size={18} />
-                </button>
-             )}
-          </div>
+      <div className="max-w-3xl mx-auto px-4 w-full relative z-10">
+        
+        {/* Unified Diagnostic Master Frame */}
+        <div className="relative aspect-[4/5] md:aspect-[1/1] bg-white dark:bg-zinc-950 border border-brand-dark/10 dark:border-white/5 rounded-[48px] md:rounded-[64px] overflow-hidden shadow-2xl group/scanner flex flex-col">
+            
+            {/* Precision Corner Brackets */}
+            <div className="absolute top-8 left-8 w-6 h-6 border-t-2 border-l-2 border-brand-primary/60 rounded-tl-lg z-20 transition-all duration-700" />
+            <div className="absolute top-8 right-8 w-6 h-6 border-t-2 border-r-2 border-brand-primary/60 rounded-tr-lg z-20 transition-all duration-700" />
+            <div className="absolute bottom-8 left-8 w-6 h-6 border-b-2 border-l-2 border-brand-primary/60 rounded-bl-lg z-20 transition-all duration-700" />
+            <div className="absolute bottom-8 right-8 w-6 h-6 border-b-2 border-r-2 border-brand-primary/60 rounded-br-lg z-20 transition-all duration-700" />
 
-          <div className="w-full lg:col-span-7">
-            <div className="relative aspect-[4/5.5] md:aspect-[1.2/1] bg-white dark:bg-zinc-950 border border-brand-dark/5 dark:border-white/5 rounded-[48px] lg:rounded-[64px] overflow-hidden flex flex-col">
-                
-                <div className="absolute top-8 left-8 w-6 h-6 border-t-2 border-l-2 border-brand-primary/60 rounded-tl-lg z-20" />
-                <div className="absolute top-8 right-8 w-6 h-6 border-t-2 border-r-2 border-brand-primary/60 rounded-tr-lg z-20" />
-                <div className="absolute bottom-16 left-8 w-6 h-6 border-b-2 border-l-2 border-brand-primary/60 rounded-bl-lg z-20" />
-                <div className="absolute bottom-16 right-8 w-6 h-6 border-b-2 border-r-2 border-brand-primary/60 rounded-br-lg z-20" />
+            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
 
-                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
-
-                {status === 'loading' ? (
-                  <div className="flex-grow flex flex-col items-center justify-center space-y-8 animate-fade-in p-10">
-                    <div className="relative">
-                       <div className="w-24 h-24 rounded-full border border-brand-primary/10 border-t-brand-primary animate-spin" />
-                       <Fingerprint size={28} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-brand-primary animate-pulse" />
+            {/* Content Logic based on State */}
+            {status === 'loading' ? (
+              <div className="flex-grow flex flex-col items-center justify-center space-y-8 animate-fade-in p-10">
+                 <div className="relative">
+                    <div className="w-20 h-20 rounded-full border-2 border-brand-primary/5 border-t-brand-primary animate-spin" />
+                    <Fingerprint size={24} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-brand-primary animate-pulse" />
+                 </div>
+                 <div className="w-full max-w-xs space-y-4 text-center">
+                    <div className="space-y-1">
+                       <h3 className="text-xl font-serif font-bold tracking-tight text-brand-dark dark:text-white uppercase">{language === 'ar' ? 'جاري التحليل' : 'SYNCING'}</h3>
+                       <p className="text-[8px] font-black uppercase tracking-[0.4em] text-brand-primary">{progress}%</p>
                     </div>
-                    <div className="w-full max-w-xs space-y-4 text-center">
-                       <h3 className="text-lg font-black uppercase tracking-[0.5em] text-brand-primary">{language === 'ar' ? 'جاري التحليل' : 'SYNCHRONIZING'}</h3>
-                       <div className="h-0.5 bg-brand-dark/5 dark:bg-white/5 rounded-full overflow-hidden">
-                          <div className="h-full bg-brand-primary transition-all duration-500" style={{ width: `${progress}%` }} />
+                    <div className="h-1 bg-brand-dark/5 dark:bg-white/5 rounded-full overflow-hidden">
+                       <div className="h-full bg-brand-primary transition-all duration-500 shadow-glow" style={{ width: `${progress}%` }} />
+                    </div>
+                 </div>
+              </div>
+            ) : status === 'error' ? (
+              <div className="flex-grow flex flex-col items-center justify-center text-center p-10 space-y-8 animate-fade-in">
+                 <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center border border-red-500/20">
+                    <AlertCircle size={32} className="text-red-500" />
+                 </div>
+                 <div className="space-y-3">
+                    <h3 className="text-2xl font-serif font-bold text-brand-dark dark:text-white">{language === 'ar' ? 'فشل الاتصال' : 'SYNC FAILED'}</h3>
+                    <p className="text-xs text-brand-dark/40 dark:text-white/40 font-medium italic">{errorMessage}</p>
+                 </div>
+                 <button onClick={() => setStatus('idle')} className="px-10 py-5 bg-brand-dark text-white rounded-full font-black text-[9px] uppercase tracking-widest hover:bg-brand-primary transition-all">
+                    {language === 'ar' ? 'إعادة المحاولة' : 'RETRY'}
+                 </button>
+              </div>
+            ) : lastAnalysisResult ? (
+              <div className="flex-grow flex flex-col animate-fade-in bg-white dark:bg-zinc-950 overflow-hidden">
+                 <div className="p-6 border-b border-brand-dark/5 dark:border-white/5 flex justify-between items-center bg-zinc-50/50 dark:bg-zinc-900/30">
+                    <div className="flex items-center gap-3">
+                       <Activity size={12} className="text-brand-primary" />
+                       <h3 className="text-xs font-serif font-bold uppercase text-brand-dark dark:text-white tracking-tight truncate max-w-[150px] md:max-w-none">{lastAnalysisResult.summary}</h3>
+                    </div>
+                    <button onClick={() => { setImage(null); setLastAnalysisResult(null); }} className="p-2.5 bg-brand-dark/5 dark:bg-white/5 rounded-xl hover:text-brand-primary transition-all">
+                       <RefreshCw size={12} />
+                    </button>
+                 </div>
+                 <div className="flex-grow flex flex-col md:flex-row p-6 md:p-10 gap-8 overflow-y-auto no-scrollbar">
+                    <div className="w-full md:w-1/2 relative aspect-square rounded-[32px] overflow-hidden border border-brand-dark/5 dark:border-white/5">
+                       <img src={lastAnalysisResult.imageUrl} className="w-full h-full object-cover" alt="Scan" />
+                    </div>
+                    <div className="w-full md:w-1/2 space-y-6 flex flex-col justify-center">
+                       <div className="grid grid-cols-2 gap-3">
+                          <div className="p-4 bg-brand-primary/5 rounded-2xl border border-brand-primary/10">
+                             <span className="text-[6px] font-black uppercase tracking-widest block opacity-40 mb-1">HEALTH SCORE</span>
+                             <span className="text-2xl font-serif font-bold text-brand-primary">{lastAnalysisResult.healthScore}%</span>
+                          </div>
+                          <div className="p-4 bg-brand-dark/5 dark:bg-white/5 rounded-2xl border border-brand-dark/5 dark:border-white/5">
+                             <span className="text-[6px] font-black uppercase tracking-widest block opacity-40 mb-1">CALORIES</span>
+                             <span className="text-2xl font-serif font-bold text-brand-dark dark:text-white">{lastAnalysisResult.totalCalories}</span>
+                          </div>
                        </div>
+                       <p className="p-6 rounded-[32px] border border-brand-primary/20 bg-brand-primary/[0.03] italic text-[11px] leading-relaxed text-brand-dark/70 dark:text-white/60">
+                          "{lastAnalysisResult.personalizedAdvice}"
+                       </p>
                     </div>
-                  </div>
-                ) : status === 'error' ? (
-                  <div className="flex-grow flex flex-col items-center justify-center text-center p-10 space-y-8 animate-fade-in">
-                    <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center border border-red-500/10">
-                       <AlertCircle size={32} className="text-red-500" />
+                 </div>
+              </div>
+            ) : (
+              <div className="flex-grow flex flex-col items-center justify-center p-8 text-center space-y-8">
+                 
+                 {/* Master Interface Elements (Unified Screen Content) */}
+                 <div className="space-y-6 max-w-sm mx-auto">
+                    <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-brand-primary/10 text-brand-primary rounded-full border border-brand-primary/10 mx-auto">
+                       <div className="w-1.5 h-1.5 rounded-full bg-brand-primary animate-pulse" />
+                       <span className="text-[7px] font-black uppercase tracking-[0.6em]">{t.badge}</span>
                     </div>
-                    <div className="space-y-2">
-                      <h3 className="text-xl font-serif font-bold text-brand-dark dark:text-white uppercase tracking-tight">{errorMessage}</h3>
-                      {isQuotaError && (
-                        <p className="text-[10px] text-brand-dark/40 dark:text-white/30 max-w-xs mx-auto italic">
-                          {language === 'ar' ? 'يرجى استخدام مفتاحك الخاص للمتابعة أو الانتظار.' : 'Please use your personal API key to continue or wait for reset.'}
-                        </p>
-                      )}
+
+                    <div className="space-y-3">
+                       <h1 className="text-3xl md:text-5xl font-serif font-bold text-brand-dark dark:text-white leading-none tracking-tighter whitespace-nowrap">
+                          {t.title} <span className="text-brand-primary italic font-normal">{t.subtitle}</span>
+                       </h1>
+                       <p className="text-brand-dark/50 dark:text-white/30 text-xs md:text-sm font-medium italic max-w-[280px] mx-auto leading-relaxed px-2">
+                          {t.desc}
+                       </p>
                     </div>
-                    
-                    <div className="flex flex-col gap-3 w-full max-w-xs">
-                      <button onClick={() => setStatus('idle')} className="w-full py-4 bg-brand-dark text-white rounded-full font-black text-[9px] uppercase tracking-widest hover:bg-brand-primary transition-all">
-                         {language === 'ar' ? 'إعادة المحاولة' : 'RETRY LINK'}
-                      </button>
-                      
-                      {isQuotaError && (
-                        <button onClick={handleOpenKeyDialog} className="w-full py-4 border border-brand-primary text-brand-primary rounded-full font-black text-[9px] uppercase tracking-widest hover:bg-brand-primary hover:text-white transition-all flex items-center justify-center gap-2">
-                           <Key size={14} /> {language === 'ar' ? 'استخدام مفتاحي الخاص' : 'USE PERSONAL KEY'}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ) : lastAnalysisResult ? (
-                  <div className="flex-grow flex flex-col animate-fade-in bg-white dark:bg-zinc-950 overflow-hidden">
-                    <div className="p-6 border-b border-brand-dark/5 dark:border-white/5 flex justify-between items-center bg-zinc-50/50 dark:bg-zinc-900/30">
-                       <h3 className="text-xs font-serif font-bold uppercase text-brand-dark dark:text-white tracking-tight truncate max-w-[200px]">{lastAnalysisResult.summary}</h3>
-                       <button onClick={() => { setImage(null); setLastAnalysisResult(null); }} className="p-2.5 bg-brand-dark/5 dark:bg-white/5 rounded-xl hover:text-brand-primary transition-all">
-                          <RefreshCw size={14} />
-                       </button>
-                    </div>
-                    <div className="flex-grow flex flex-col p-8 gap-8 overflow-y-auto no-scrollbar">
-                       <div className="w-full relative aspect-square rounded-[40px] overflow-hidden border border-brand-dark/5 dark:border-white/5">
-                          <img src={lastAnalysisResult.imageUrl} className="w-full h-full object-cover" alt="Scan" />
-                       </div>
-                       <div className="w-full space-y-8 flex flex-col justify-center">
-                          <div className="grid grid-cols-2 gap-4">
-                             <div className="p-6 bg-brand-primary/5 rounded-3xl border border-brand-primary/10">
-                                <span className="text-[7px] font-black uppercase tracking-widest block opacity-40 mb-2 text-brand-dark dark:text-white">SCORE</span>
-                                <span className="text-3xl font-serif font-bold text-brand-primary">{lastAnalysisResult.healthScore}%</span>
-                             </div>
-                             <div className="p-6 bg-brand-dark/5 dark:bg-white/5 rounded-3xl border border-brand-dark/5 dark:border-white/5">
-                                <span className="text-[7px] font-black uppercase tracking-widest block opacity-40 mb-2">KCAL</span>
-                                <span className="text-3xl font-serif font-bold text-brand-dark dark:text-white">{lastAnalysisResult.totalCalories}</span>
+                 </div>
+
+                 {/* Internal Interaction Zone */}
+                 <div className="relative w-full max-w-[240px] mx-auto">
+                    {image ? (
+                       <div className="animate-fade-in space-y-4">
+                          <div className="relative aspect-square rounded-[32px] overflow-hidden border-2 border-brand-primary/40 shadow-glow group/preview">
+                             <img src={image} className="w-full h-full object-cover" alt="Preview" />
+                             <div className="absolute inset-0 bg-brand-dark/40 flex items-center justify-center">
+                                <button onClick={handleAnalyze} className="p-5 bg-brand-primary text-white rounded-full shadow-2xl hover:scale-110 transition-all">
+                                   <Zap size={20} className="animate-pulse" />
+                                </button>
                              </div>
                           </div>
-                          <p className="p-8 rounded-[40px] border border-brand-primary/10 bg-brand-primary/[0.02] italic text-sm leading-relaxed text-brand-dark/60 dark:text-white/50">
-                             "{lastAnalysisResult.personalizedAdvice}"
-                          </p>
+                          <button onClick={() => setImage(null)} className="text-[8px] font-black uppercase tracking-widest opacity-30 hover:opacity-100 transition-opacity">
+                             {language === 'ar' ? 'إلغاء الصورة' : 'CHOOSE DIFFERENT'}
+                          </button>
                        </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex-grow flex flex-col h-full bg-white dark:bg-zinc-950">
-                     
-                     <div className="flex-grow flex flex-col items-center justify-center px-10 pt-16 pb-8">
-                        <div 
-                          onClick={() => fileInputRef.current?.click()}
-                          className={`relative w-full aspect-[4/3] flex flex-col items-center justify-center cursor-pointer group transition-all duration-700`}
-                        >
-                           <div className="absolute inset-2 md:inset-4 border border-dashed border-brand-dark/10 dark:border-white/20 rounded-[40px] pointer-events-none" />
-                           
-                           {image ? (
-                              <div className="absolute inset-4 rounded-[32px] overflow-hidden">
-                                 <img src={image} className="w-full h-full object-cover" alt="Preview" />
-                                 <div className="absolute inset-0 bg-brand-dark/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button onClick={(e) => { e.stopPropagation(); handleAnalyze(); }} className="p-5 bg-brand-primary text-white rounded-full">
-                                       <Zap size={24} className="animate-pulse" />
-                                    </button>
-                                 </div>
-                              </div>
-                           ) : (
-                              <div className="flex flex-col items-center gap-6 opacity-30 group-hover:opacity-100 transition-all duration-700">
-                                 <div className="w-20 h-20 rounded-full border border-brand-dark/5 dark:border-white/5 flex items-center justify-center">
-                                    <Plus size={32} strokeWidth={1} />
-                                 </div>
-                                 <span className="text-[10px] font-black uppercase tracking-[0.6em] text-brand-dark dark:text-white">
-                                    {language === 'ar' ? 'رفع الإشارة الحيوية' : 'UPLOAD BIOMETRIC'}
-                                 </span>
-                              </div>
-                           )}
-                        </div>
-                     </div>
+                    ) : (
+                       <button 
+                         onClick={() => fileInputRef.current?.click()}
+                         className="group relative w-full py-6 bg-brand-dark dark:bg-brand-primary text-white dark:text-brand-dark rounded-full font-black text-[9px] uppercase tracking-[0.5em] transition-all duration-700 hover:scale-105 active:scale-95 shadow-xl overflow-hidden"
+                       >
+                          <span className="relative z-10 flex items-center justify-center gap-3">
+                             {t.cta} <ImageIcon size={14} />
+                          </span>
+                          <div className="absolute inset-0 bg-gradient-to-r from-brand-primary to-brand-primary/80 opacity-0 group-hover:opacity-100 transition-opacity dark:from-white dark:to-white/90" />
+                       </button>
+                    )}
+                 </div>
 
-                     <div className="px-10 pb-8 text-center">
-                        {image && (
-                           <button 
-                             onClick={handleAnalyze}
-                             className="w-full py-5 bg-brand-dark text-white rounded-full font-black text-[9px] uppercase tracking-[0.4em] hover:bg-brand-primary transition-all animate-fade-in"
-                           >
-                              {language === 'ar' ? 'بدء التحليل' : 'INITIALIZE SYNC'}
-                           </button>
-                        )}
-                     </div>
-
-                     <div className="pb-10 flex items-center justify-center gap-6">
-                        <div className="h-px w-10 md:w-16 bg-brand-dark/5 dark:bg-white/5" />
-                        <span className="text-[7px] font-black text-brand-dark/15 dark:text-white/10 uppercase tracking-[0.4em]">Node Protocol 4.0</span>
-                        <div className="h-px w-10 md:w-16 bg-brand-dark/5 dark:bg-white/5" />
-                     </div>
-
-                  </div>
-                )}
-            </div>
-          </div>
+                 <div className="flex items-center gap-4 pt-2 text-brand-dark/10 dark:text-white/5">
+                    <div className="h-px w-8 bg-current" />
+                    <span className="text-[7px] font-black uppercase tracking-[0.4em]">Hardware V.4.0.2</span>
+                    <div className="h-px w-8 bg-current" />
+                 </div>
+              </div>
+            )}
         </div>
       </div>
 
-      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-brand-primary/5 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2 opacity-20 pointer-events-none" />
-      <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-brand-primary/5 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/2 opacity-20 pointer-events-none" />
+      {/* Atmospheric Background Accents */}
+      <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-brand-primary/5 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/2 pointer-events-none opacity-40" />
+      <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-brand-primary/5 rounded-full blur-[100px] translate-y-1/2 -translate-x-1/2 pointer-events-none opacity-30" />
     </section>
   );
 };

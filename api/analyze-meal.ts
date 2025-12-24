@@ -2,10 +2,10 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
 export const config = {
-  maxDuration: 10,
+  maxDuration: 10, // Vercel Hobby hard limit
   api: {
     bodyParser: {
-      sizeLimit: '500kb',
+      sizeLimit: '500kb', // Further reduced limit for faster ingress
     },
   },
 };
@@ -60,19 +60,20 @@ export default async function handler(req: any, res: any) {
     const ai = new GoogleGenAI({ apiKey });
     const base64Data = image.includes(',') ? image.split(',')[1] : image;
 
+    // Minimal prompt to save tokens and reasoning time
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: {
         parts: [
           { inlineData: { data: base64Data, mimeType: 'image/jpeg' } },
-          { text: "Analyze the meal in the image and provide nutritional data in JSON format." }
+          { text: "Meal analysis. JSON." }
         ]
       },
       config: { 
         responseMimeType: "application/json", 
         responseSchema: mealAnalysisSchema,
-        temperature: 0.1,
-        thinkingConfig: { thinkingBudget: 0 }
+        temperature: 0, // Faster, deterministic output
+        thinkingConfig: { thinkingBudget: 0 } // Disable reasoning overhead
       }
     });
 
@@ -82,18 +83,9 @@ export default async function handler(req: any, res: any) {
     return res.status(200).json(JSON.parse(text.trim()));
   } catch (error: any) {
     console.error("Critical Cloud Failure:", error);
-    
-    // Categorize common API errors
-    let errorMessage = 'Analysis Failed';
-    if (error.message?.includes('429') || error.message?.includes('quota')) {
-      errorMessage = 'QUOTA_EXHAUSTED';
-    } else if (error.message?.includes('404')) {
-      errorMessage = 'MODEL_NOT_FOUND';
-    }
-
-    return res.status(error.status || 500).json({ 
-      error: errorMessage,
-      details: errorMessage === 'QUOTA_EXHAUSTED' ? 'The system is currently at peak capacity.' : 'Diagnostic server unreachable.'
+    return res.status(500).json({ 
+      error: 'Analysis Failed', 
+      details: error.message 
     });
   }
 }
