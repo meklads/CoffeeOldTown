@@ -12,7 +12,7 @@ const Hero: React.FC = () => {
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [progress, setProgress] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(10); 
+  const [timeLeft, setTimeLeft] = useState(12); 
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const t = translations[language].hero;
@@ -21,9 +21,9 @@ const Hero: React.FC = () => {
     let interval: any;
     if (status === 'loading') {
       setProgress(0);
-      setTimeLeft(10);
+      setTimeLeft(12);
       interval = setInterval(() => {
-        setProgress(p => (p >= 98 ? p : p + (p < 80 ? 10 : 1)));
+        setProgress(p => (p >= 98 ? p : p + (p < 80 ? 10 : 0.5)));
         setTimeLeft(t => (t > 1 ? t - 1 : 1));
       }, 1000);
     }
@@ -36,21 +36,19 @@ const Hero: React.FC = () => {
       img.src = base64Str;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        // Reduced to 640px for maximum speed - plenty for AI to identify food
-        const MAX_WIDTH = 640;
-        const MAX_HEIGHT = 640;
+        const MAX_SIZE = 800; // Optimal size for speed vs accuracy
         let width = img.width;
         let height = img.height;
 
         if (width > height) {
-          if (width > MAX_WIDTH) {
-            height *= MAX_WIDTH / width;
-            width = MAX_WIDTH;
+          if (width > MAX_SIZE) {
+            height *= MAX_SIZE / width;
+            width = MAX_SIZE;
           }
         } else {
-          if (height > MAX_HEIGHT) {
-            width *= MAX_HEIGHT / height;
-            height = MAX_HEIGHT;
+          if (height > MAX_SIZE) {
+            width *= MAX_SIZE / height;
+            height = MAX_SIZE;
           }
         }
 
@@ -58,8 +56,7 @@ const Hero: React.FC = () => {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        // Drastically lower quality to 0.5 to stay well under Vercel payload/timeout limits
-        resolve(canvas.toDataURL('image/jpeg', 0.5));
+        resolve(canvas.toDataURL('image/jpeg', 0.6));
       };
     });
   };
@@ -74,9 +71,9 @@ const Hero: React.FC = () => {
     try {
       const compressedImage = await compressImage(image);
 
-      // Tight 20s timeout for UI - Vercel Hobby will fail at 10s anyway
+      // We set a frontend timeout of 25s, though Vercel Hobby will usually fail at 10s
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Link Interrupted. Connection took too long.')), 18000)
+        setTimeout(() => reject(new Error('Link Congestion. Try a smaller image.')), 20000)
       );
 
       const resultPromise = analyzeMealImage(compressedImage, { chronicDiseases: '', dietProgram: '', activityLevel: 'moderate' });
@@ -96,13 +93,12 @@ const Hero: React.FC = () => {
           setStatus('idle');
         }, 800);
       } else {
-        throw new Error("No response from analytical node.");
+        throw new Error("Cloud Node returned an empty response.");
       }
     } catch (err: any) {
       console.error("Scanner Error:", err);
-      // More helpful error messages
       let msg = err.message || 'Transmission Interrupted';
-      if (msg.includes('fetch')) msg = 'Check Internet / API Status';
+      if (msg.includes('504') || msg.includes('502')) msg = 'Vercel Timeout (10s). Please use a clearer, smaller image.';
       setErrorMessage(msg);
       setStatus('error');
     }
@@ -162,12 +158,12 @@ const Hero: React.FC = () => {
                     </div>
                     <div className="w-full max-w-xs space-y-3 text-center">
                       <p className="text-[9px] font-black uppercase tracking-widest text-brand-primary">
-                        {language === 'ar' ? `المتبقي ~${timeLeft} ثانية` : `UPLOADING: ~${timeLeft}S`}
+                        {language === 'ar' ? `المتبقي التقريبي ~${timeLeft} ثانية` : `CALIBRATING: ~${timeLeft}S`}
                       </p>
                       <div className="h-1 bg-white/10 rounded-full overflow-hidden">
                         <div className="h-full bg-brand-primary transition-all duration-500" style={{ width: `${progress}%` }} />
                       </div>
-                      <p className="text-[8px] text-white/40 uppercase tracking-widest">{language === 'ar' ? 'تحليل سريع عبر السحاب...' : 'ULTRA-FAST CLOUD SCAN...'}</p>
+                      <p className="text-[8px] text-white/40 uppercase tracking-widest">{language === 'ar' ? 'تحليل الإشارة الحيوية عبر السحاب...' : 'SYNCHRONIZING WITH CLOUD CORE...'}</p>
                     </div>
                   </div>
                 )}
@@ -178,9 +174,9 @@ const Hero: React.FC = () => {
                       <AlertCircle size={40} className="text-red-500" />
                     </div>
                     <div className="space-y-2">
-                      <h3 className="text-2xl font-serif font-bold text-white uppercase tracking-tight">{language === 'ar' ? 'فشل الربط' : 'NODE FAULT'}</h3>
+                      <h3 className="text-2xl font-serif font-bold text-white uppercase tracking-tight">{language === 'ar' ? 'فشل الربط' : 'LINK FAILURE'}</h3>
                       <p className="text-xs text-brand-primary font-bold px-4">{errorMessage}</p>
-                      <p className="text-[10px] text-white/30 max-w-xs mx-auto italic">{language === 'ar' ? 'تأكد من صحة مفتاح API في إعدادات Vercel.' : 'Verify Vercel Environment Variables: API_KEY.'}</p>
+                      <p className="text-[10px] text-white/30 max-w-xs mx-auto italic">{language === 'ar' ? 'تأكد من إعداد المفتاح في Vercel.' : 'Verify API_KEY in environment settings.'}</p>
                     </div>
                     <button 
                       onClick={() => { setStatus('idle'); handleAnalyze(); }} 

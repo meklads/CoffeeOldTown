@@ -2,10 +2,10 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
 export const config = {
-  maxDuration: 60, // Only effective on Pro/Enterprise, but good practice
+  maxDuration: 10, // Strict Vercel Hobby Limit
   api: {
     bodyParser: {
-      sizeLimit: '4mb', // Reduced limit to prevent large payloads from slowing down the gateway
+      sizeLimit: '4mb',
     },
   },
 };
@@ -42,7 +42,6 @@ const mealAnalysisSchema = {
 };
 
 export default async function handler(req: any, res: any) {
-  // CORS Headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -54,56 +53,44 @@ export default async function handler(req: any, res: any) {
   const apiKey = process.env.API_KEY;
 
   if (!apiKey) {
-    return res.status(500).json({ error: 'API_KEY is not configured in environment variables.' });
+    return res.status(500).json({ error: 'Server Error: API_KEY not found.' });
   }
 
   if (!image) {
-    return res.status(400).json({ error: 'Payload missing image data.' });
+    return res.status(400).json({ error: 'No image provided.' });
   }
 
   try {
     const ai = new GoogleGenAI({ apiKey });
-    
-    // Clean base64 data
     const base64Data = image.includes(',') ? image.split(',')[1] : image;
 
-    // Use gemini-3-flash-preview for fastest multimodal response
+    // Direct, fast generation using the most optimized model
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: {
         parts: [
-          {
-            inlineData: {
-              data: base64Data,
-              mimeType: 'image/jpeg'
-            }
-          },
-          {
-            text: "Identify food, calculate calories and health score (0-100). Return ONLY JSON."
-          }
+          { inlineData: { data: base64Data, mimeType: 'image/jpeg' } },
+          { text: "Analyze meal metabolic health. Output valid JSON only." }
         ]
       },
       config: { 
         responseMimeType: "application/json", 
         responseSchema: mealAnalysisSchema,
         temperature: 0.1,
-        // Using a smaller thinking budget or disabling it for faster image analysis
         thinkingConfig: { thinkingBudget: 0 }
       }
     });
 
     if (!response.text) {
-      throw new Error("No analysis data returned from model.");
+      throw new Error("Diagnostic failed: No response from AI core.");
     }
 
-    const result = JSON.parse(response.text.trim());
-    return res.status(200).json(result);
+    return res.status(200).json(JSON.parse(response.text.trim()));
   } catch (error: any) {
-    console.error("Critical API Error:", error);
+    console.error("Critical Node Failure:", error);
     return res.status(500).json({ 
-      error: 'Bio-Bridge Desync', 
-      details: error.message,
-      suggestion: "Check image clarity and API Key billing status."
+      error: 'Analysis Error', 
+      details: error.message 
     });
   }
 }

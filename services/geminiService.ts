@@ -15,8 +15,8 @@ export const analyzeMealImage = async (base64Image: string, profile: UserHealthP
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Transmission Error' }));
-      throw new Error(errorData.details || errorData.error || 'Server connection failed');
+      const errorData = await response.json().catch(() => ({ error: 'Communication Fault' }));
+      throw new Error(errorData.details || errorData.error || 'Diagnostic server unreachable');
     }
 
     return await response.json();
@@ -59,5 +59,5 @@ export const generateMascot = async (prompt: string): Promise<string | null> => 
 };
 
 export const isSystemKeyAvailable = async (): Promise<boolean> => {
-  return true; // Key is server-side
+  return true; // Managed server-side
 };
