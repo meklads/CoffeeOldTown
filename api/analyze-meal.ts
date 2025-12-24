@@ -42,17 +42,13 @@ export default async function handler(req: any, res: any) {
   }
 
   const { image } = req.body;
+  const apiKey = process.env.API_KEY;
 
-  if (!image) {
-    return res.status(400).json({ error: 'Image data is required' });
-  }
-
-  if (!process.env.API_KEY) {
-    return res.status(500).json({ error: 'Server configuration error: API key missing' });
-  }
+  if (!image) return res.status(400).json({ error: 'Image required' });
+  if (!apiKey) return res.status(500).json({ error: 'Server configuration error' });
 
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey });
     const cleanBase64 = image.includes('base64,') ? image.split('base64,')[1] : image;
 
     const response = await ai.models.generateContent({
@@ -60,7 +56,7 @@ export default async function handler(req: any, res: any) {
       contents: {
         parts: [
           { inlineData: { data: cleanBase64, mimeType: 'image/jpeg' } },
-          { text: "Strict biological and metabolic analysis of this meal. Focus on precise calorie estimation and macro distribution. Return JSON." }
+          { text: "Detailed metabolic analysis. Return JSON." }
         ]
       },
       config: { 
@@ -72,7 +68,7 @@ export default async function handler(req: any, res: any) {
     const result = JSON.parse(response.text || '{}');
     return res.status(200).json(result);
   } catch (error: any) {
-    console.error("Gemini Backend Error:", error);
-    return res.status(500).json({ error: 'Failed to analyze meal' });
+    console.error("Vercel Backend Error:", error);
+    return res.status(500).json({ error: error.message || 'Analysis failed' });
   }
 }

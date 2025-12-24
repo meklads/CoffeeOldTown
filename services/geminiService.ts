@@ -2,7 +2,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { UserHealthProfile, MealAnalysisResult, MealPlanRequest, DayPlan, FeedbackEntry } from '../types.ts';
 
-// Initialize the AI client using the mandatory environment variable
+// Initialize the AI client
 const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const mealAnalysisSchema = {
@@ -39,38 +39,29 @@ const mealAnalysisSchema = {
 export const analyzeMealImage = async (base64Image: string, profile: UserHealthProfile): Promise<MealAnalysisResult | null> => {
   try {
     const ai = getAI();
-    // Ensure we only send the raw base64 data without the data:image/jpeg;base64, prefix
+    // Strip metadata from base64 string if present
     const cleanBase64 = base64Image.includes('base64,') ? base64Image.split('base64,')[1] : base64Image;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: {
         parts: [
-          { 
-            inlineData: { 
-              data: cleanBase64, 
-              mimeType: 'image/jpeg' 
-            } 
-          },
-          { 
-            text: "Conduct a precise metabolic and nutritional analysis of this meal. Provide a health score (0-100), detailed macro breakdown, and specific biological advice based on the ingredients identified. Output ONLY valid JSON." 
-          }
+          { inlineData: { data: cleanBase64, mimeType: 'image/jpeg' } },
+          { text: "Analyze this meal image for clinical metabolic health. Provide total calories, health score (0-100), macro breakdown, and bio-optimized advice. Return valid JSON only." }
         ]
       },
       config: { 
         responseMimeType: "application/json", 
         responseSchema: mealAnalysisSchema,
-        temperature: 0.1 // Keep it precise for nutritional data
+        temperature: 0.1
       }
     });
 
-    if (!response || !response.text) {
-      throw new Error("Empty response from Gemini API");
-    }
-
+    if (!response.text) throw new Error("No response from AI");
+    
     return JSON.parse(response.text.trim());
   } catch (error) {
-    console.error("Critical Analysis Error:", error);
+    console.error("Analysis Service Error:", error);
     return null;
   }
 };
@@ -78,7 +69,7 @@ export const analyzeMealImage = async (base64Image: string, profile: UserHealthP
 export const generateMealPlan = async (request: MealPlanRequest, lang: string, feedback: FeedbackEntry[] = []): Promise<DayPlan | null> => {
   try {
     const ai = getAI();
-    const prompt = `Generate a 1-day metabolic nutrition plan for goal: ${request.goal}. Diet: ${request.diet}. Context: ${JSON.stringify(feedback.slice(0, 3))}. Language: ${lang}. Output JSON.`;
+    const prompt = `Create a 1-day metabolic nutrition plan for goal: ${request.goal}. Language: ${lang}. Context: ${JSON.stringify(feedback.slice(0, 3))}. Output valid JSON.`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -105,7 +96,7 @@ export const generateMascot = async (prompt: string): Promise<string | null> => 
     const ai = getAI();
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
-      contents: { parts: [{ text: `Professional minimalist health icon for: ${prompt}` }] }
+      contents: { parts: [{ text: `High-quality clinical mascot icon for: ${prompt}` }] }
     });
     for (const part of response.candidates[0].content.parts) {
       if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
