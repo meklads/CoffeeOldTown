@@ -34,7 +34,8 @@ const App: React.FC = () => {
   
   const [theme, setTheme] = useState<Theme>(() => {
     const saved = localStorage.getItem('ot_theme') as Theme;
-    return saved || 'dark';
+    // Light is the default if no preference is saved
+    return saved || 'light';
   });
 
   const [history, setHistory] = useState<MealAnalysisResult[]>(() => {
@@ -125,19 +126,10 @@ const App: React.FC = () => {
       case 'home':
         return (
           <div className="animate-fade-in space-y-0 overflow-hidden">
-            {/* Phase 01: The Core Action (Hero Scan) */}
             <Hero />
-            
-            {/* Phase 02: Synthesis Lab (The Decision Hub) */}
             <SmartNutritionTool />
-            
-            {/* Phase 03: Global Context (Trending) */}
             <TrendingRecipes />
-            
-            {/* Phase 04: Refined Archive (The Discreet History) */}
             <MealScanner />
-            
-            {/* Phase 05: The Knowledge Bridge */}
             <KnowledgeHub />
           </div>
         );
