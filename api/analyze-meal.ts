@@ -2,10 +2,10 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
 export const config = {
-  maxDuration: 10, // Vercel Hobby Limit
+  maxDuration: 10, // Hard limit for Vercel Hobby
   api: {
     bodyParser: {
-      sizeLimit: '2mb', // Smaller limit for faster parsing
+      sizeLimit: '1mb', // Extremely tight limit for speed
     },
   },
 };
@@ -53,39 +53,40 @@ export default async function handler(req: any, res: any) {
   const apiKey = process.env.API_KEY;
 
   if (!apiKey) {
-    return res.status(500).json({ error: 'System Error: API_KEY missing.' });
+    return res.status(500).json({ error: 'System key missing.' });
   }
 
   try {
     const ai = new GoogleGenAI({ apiKey });
     const base64Data = image.includes(',') ? image.split(',')[1] : image;
 
-    // Use Gemini 3 Flash Preview - the fastest multimodal model available
+    // Use gemini-3-flash-preview for the fastest possible turn-around
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: {
         parts: [
           { inlineData: { data: base64Data, mimeType: 'image/jpeg' } },
-          { text: "Fast metabolic analysis. Output JSON only." }
+          { text: "Brief meal analysis. Output JSON." }
         ]
       },
       config: { 
         responseMimeType: "application/json", 
         responseSchema: mealAnalysisSchema,
-        temperature: 0, // Lower temperature for faster, more deterministic response
+        temperature: 0,
         thinkingConfig: { thinkingBudget: 0 }
       }
     });
 
-    if (!response.text) {
-      throw new Error("Empty AI response.");
+    const text = response.text;
+    if (!text) {
+      throw new Error("Empty response from AI engine.");
     }
 
-    return res.status(200).json(JSON.parse(response.text.trim()));
+    return res.status(200).json(JSON.parse(text.trim()));
   } catch (error: any) {
-    console.error("API Failure:", error);
+    console.error("API Error:", error);
     return res.status(500).json({ 
-      error: 'Analysis Node Offline', 
+      error: 'Analysis Failed', 
       details: error.message 
     });
   }
