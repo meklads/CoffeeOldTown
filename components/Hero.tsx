@@ -1,17 +1,18 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Microscope, Fingerprint, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
+import { Plus, Microscope, Fingerprint, AlertCircle, CheckCircle2, RefreshCw, X, Flame, Activity, Zap } from 'lucide-react';
 import { SectionId } from '../types.ts';
 import { useApp } from '../context/AppContext.tsx';
 import { GoogleGenAI } from "@google/genai";
 
 const Hero: React.FC = () => {
-  const { incrementScans, setLastAnalysisResult, scrollTo } = useApp();
+  const { incrementScans, setLastAnalysisResult, scrollTo, lastAnalysisResult } = useApp();
   const [image, setImage] = useState<string | null>(null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'error' | 'success'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [progress, setProgress] = useState(0);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [showResultCard, setShowResultCard] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const progressIntervalRef = useRef<number | null>(null);
@@ -36,26 +37,29 @@ const Hero: React.FC = () => {
     setStatus('loading');
     setProgress(0);
     setErrorMessage('');
+    setShowResultCard(false);
 
-    // Start Smooth Progress Simulation
     progressIntervalRef.current = window.setInterval(() => {
       setProgress(prev => (prev >= 92 ? 92 : prev + Math.floor(Math.random() * 4) + 1));
-    }, 250);
+    }, 200);
 
     try {
-      // Use the injected API_KEY directly without forcing the 'Paid Key' dialog
       const apiKey = process.env.API_KEY;
-      if (!apiKey) throw new Error("API_KEY_NOT_CONFIGURED");
+      if (!apiKey) throw new Error("API_KEY_MISSING");
 
       const ai = new GoogleGenAI({ apiKey });
+      
+      // Extract data and mime type properly
+      const mimeType = image.match(/data:(.*?);/)?.[1] || 'image/jpeg';
       const base64Data = image.split(',')[1];
       
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        // Using Flash Lite for better compatibility and speed on all tiers
+        model: 'gemini-flash-lite-latest',
         contents: {
           parts: [
-            { inlineData: { data: base64Data, mimeType: 'image/jpeg' } },
-            { text: "Analyze this meal. Provide: ingredients (array of {name, calories}), totalCalories (number), healthScore (number 0-100), macros ({protein, carbs, fat}), summary (string), and personalizedAdvice (string). Return ONLY JSON." }
+            { inlineData: { data: base64Data, mimeType: mimeType } },
+            { text: "Analyze this meal. Return ONLY a JSON object with: ingredients (array of {name, calories}), totalCalories (number), healthScore (number 0-100), macros ({protein, carbs, fat}), summary (string), and personalizedAdvice (string)." }
           ]
         },
         config: { 
@@ -73,25 +77,25 @@ const Hero: React.FC = () => {
         setLastAnalysisResult({ ...result, timestamp: new Date().toLocaleString(), imageUrl: image });
         incrementScans(result);
         setStatus('success');
+        
+        // Brief delay to show success before showing card
         setTimeout(() => {
-          setStatus('idle');
-          scrollTo(SectionId.PHASE_03_SYNTHESIS);
-        }, 1200);
+          setShowResultCard(true);
+        }, 800);
       } else {
-        throw new Error("MALFORMED_RESPONSE");
+        throw new Error("UNABLE_TO_PARSE_MEAL_DATA");
       }
     } catch (err: any) {
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       setStatus('error');
-      console.error("Scanner Error:", err);
+      console.error("Scanner Diagnostic Fault:", err);
       
-      // Handle specific "Paid Key" or Tier errors gracefully
       if (err.message?.includes("403") || err.message?.includes("permission")) {
-        setErrorMessage("Access Denied: This model may require a different API tier.");
-      } else if (err.message?.includes("404")) {
-        setErrorMessage("Model Unavailable: System is updating protocols.");
+        setErrorMessage("Access Restricted: System requires high-tier verification.");
+      } else if (err.message?.includes("quota")) {
+        setErrorMessage("Capacity Reached: System cooling down. Retry in 60s.");
       } else {
-        setErrorMessage(err.message || "Diagnostic connection failure.");
+        setErrorMessage(err.message || "Connection Interrupted during data extraction.");
       }
     }
   };
@@ -104,9 +108,18 @@ const Hero: React.FC = () => {
         setImage(reader.result as string); 
         setStatus('idle'); 
         setProgress(0);
+        setShowResultCard(false);
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const resetScanner = () => {
+    setImage(null);
+    setStatus('idle');
+    setProgress(0);
+    setShowResultCard(false);
+    setErrorMessage('');
   };
 
   return (
@@ -135,13 +148,66 @@ const Hero: React.FC = () => {
                </div>
             </div>
 
-            <div className="relative group w-full aspect-[16/9] overflow-hidden rounded-[48px] bg-brand-sand/5 border border-brand-dark/[0.04] shadow-sm">
-               <img src="https://images.unsplash.com/photo-1547592166-23ac45744acd?w=1000&q=80" className="w-full h-full object-cover saturate-[0.2] contrast-[1.1] opacity-60" alt="Archive" />
-               <div className="absolute bottom-8 left-8 space-y-1">
-                  <span className="block text-[6px] font-black text-white/40 uppercase tracking-[0.4em]">NODE_ARCHIVE_BETA</span>
-                  <h4 className="text-2xl font-serif font-bold text-white tracking-tight">System Records</h4>
-               </div>
-            </div>
+            {/* Diagnostic Result Card (Appears after success) */}
+            {showResultCard && lastAnalysisResult && (
+              <div className="bg-white rounded-[40px] border border-brand-primary/20 p-10 shadow-3xl animate-fade-in-up relative overflow-hidden group/card">
+                <div className="absolute top-0 left-0 w-full h-1 bg-brand-primary" />
+                <button onClick={() => setShowResultCard(false)} className="absolute top-6 right-6 text-brand-dark/20 hover:text-brand-dark transition-colors">
+                  <X size={20} />
+                </button>
+                
+                <div className="space-y-8">
+                  <div className="flex justify-between items-start">
+                    <div className="space-y-2">
+                      <span className="text-[8px] font-black text-brand-primary uppercase tracking-[0.5em]">Current_Sample</span>
+                      <h3 className="text-3xl font-serif font-bold text-brand-dark">{lastAnalysisResult.summary}</h3>
+                    </div>
+                    <div className="text-right">
+                       <span className="text-[8px] font-black text-brand-dark/30 uppercase tracking-widest block mb-1">HEALTH_SCORE</span>
+                       <span className="text-4xl font-serif font-bold text-brand-primary">{lastAnalysisResult.healthScore}%</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-6">
+                     <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-brand-dark/40">
+                           <Flame size={12} /> <span className="text-[8px] font-black uppercase tracking-widest">Calories</span>
+                        </div>
+                        <p className="text-xl font-serif font-bold">{lastAnalysisResult.totalCalories}</p>
+                     </div>
+                     <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-brand-dark/40">
+                           <Activity size={12} /> <span className="text-[8px] font-black uppercase tracking-widest">Protein</span>
+                        </div>
+                        <p className="text-xl font-serif font-bold">{lastAnalysisResult.macros.protein}g</p>
+                     </div>
+                     <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-brand-dark/40">
+                           <Zap size={12} /> <span className="text-[8px] font-black uppercase tracking-widest">Fiber</span>
+                        </div>
+                        <p className="text-xl font-serif font-bold">{lastAnalysisResult.macros.carbs}g</p>
+                     </div>
+                  </div>
+
+                  <button 
+                    onClick={() => scrollTo(SectionId.PHASE_03_SYNTHESIS)}
+                    className="w-full py-5 bg-brand-dark text-white rounded-2xl text-[9px] font-black uppercase tracking-[0.5em] flex items-center justify-center gap-4 hover:bg-brand-primary transition-all"
+                  >
+                    Generate Protocol Synergy <RefreshCw size={14} />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {!showResultCard && (
+              <div className="relative group w-full aspect-[16/9] overflow-hidden rounded-[48px] bg-brand-sand/5 border border-brand-dark/[0.04] shadow-sm">
+                <img src="https://images.unsplash.com/photo-1547592166-23ac45744acd?w=1000&q=80" className="w-full h-full object-cover saturate-[0.2] contrast-[1.1] opacity-60" alt="Archive" />
+                <div className="absolute bottom-8 left-8 space-y-1">
+                    <span className="block text-[6px] font-black text-white/40 uppercase tracking-[0.4em]">NODE_ARCHIVE_BETA</span>
+                    <h4 className="text-2xl font-serif font-bold text-white tracking-tight">System Records</h4>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex justify-center lg:justify-end items-end relative">
@@ -151,7 +217,7 @@ const Hero: React.FC = () => {
              >
                <div className="absolute -top-12 right-10 flex items-center gap-3 opacity-30">
                   <Fingerprint size={14} className="text-brand-primary" />
-                  <span className="text-[7px] font-black uppercase tracking-widest">SECURE_SYNC_OK</span>
+                  <span className="text-[7px] font-black uppercase tracking-widest text-brand-dark">SECURE_SYNC_OK</span>
                </div>
 
                <div className="relative aspect-[3/4.2] rounded-[72px] border border-brand-dark/[0.08] bg-white overflow-hidden shadow-2xl z-20 group">
@@ -182,17 +248,26 @@ const Hero: React.FC = () => {
                            <AlertCircle size={48} className="mb-4 text-red-500" />
                            <span className="text-[12px] font-black uppercase tracking-widest mb-2 text-red-400">Analysis Failed</span>
                            <p className="text-[10px] opacity-70 leading-relaxed mb-8">{errorMessage}</p>
-                           <button 
-                             onClick={() => setStatus('idle')}
-                             className="flex items-center gap-2 px-8 py-3 bg-white/10 rounded-full text-[9px] font-black uppercase tracking-widest hover:bg-white/20 transition-all"
-                           >
-                             <RefreshCw size={12} /> Retry Scanner
-                           </button>
+                           <div className="flex flex-col w-full gap-3">
+                              <button 
+                                onClick={handleAnalyze}
+                                className="flex items-center justify-center gap-2 px-8 py-3 bg-brand-primary rounded-full text-[9px] font-black uppercase tracking-widest hover:bg-white hover:text-brand-dark transition-all"
+                              >
+                                <RefreshCw size={12} /> Force Retry
+                              </button>
+                              <button 
+                                onClick={resetScanner}
+                                className="text-[9px] font-bold uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity"
+                              >
+                                Clear Image
+                              </button>
+                           </div>
                         </div>
                       ) : status === 'success' ? (
                         <div className="absolute inset-0 bg-brand-primary/95 backdrop-blur-md flex flex-col items-center justify-center z-50 text-white animate-fade-in">
                            <CheckCircle2 size={56} className="mb-4" />
                            <span className="text-[10px] font-black uppercase tracking-widest">SUCCESS_READY</span>
+                           <button onClick={() => setShowResultCard(true)} className="mt-6 text-[9px] font-black uppercase tracking-widest border-b border-white/20 pb-1">View Results</button>
                         </div>
                       ) : (
                         <div className="absolute inset-0 bg-brand-dark/40 opacity-0 group-hover:opacity-100 transition-all flex flex-col items-center justify-center gap-6 z-40">
@@ -228,7 +303,7 @@ const Hero: React.FC = () => {
                </div>
 
                <div className="absolute -bottom-10 right-12 opacity-10">
-                  <p className="text-[6px] font-black uppercase tracking-[0.6em]">BIO_OPTIC_V4_STABLE</p>
+                  <p className="text-[6px] font-black uppercase tracking-[0.6em]">BIO_OPTIC_LITE_STABLE</p>
                </div>
              </div>
           </div>
