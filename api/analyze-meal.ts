@@ -2,10 +2,10 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
 export const config = {
-  maxDuration: 10, // Vercel Hobby hard limit
+  maxDuration: 15,
   api: {
     bodyParser: {
-      sizeLimit: '500kb', // Further reduced limit for faster ingress
+      sizeLimit: '4mb', // Increased from 500kb to support high-res phone photos
     },
   },
 };
@@ -49,7 +49,7 @@ export default async function handler(req: any, res: any) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { image } = req.body;
+  const { image, profile } = req.body;
   const apiKey = process.env.API_KEY;
 
   if (!apiKey) {
@@ -60,29 +60,27 @@ export default async function handler(req: any, res: any) {
     const ai = new GoogleGenAI({ apiKey });
     const base64Data = image.includes(',') ? image.split(',')[1] : image;
 
-    // Minimal prompt to save tokens and reasoning time
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: {
         parts: [
           { inlineData: { data: base64Data, mimeType: 'image/jpeg' } },
-          { text: "Meal analysis. JSON." }
+          { text: `Analyze this meal image for a person with: ${JSON.stringify(profile)}. Return detailed nutritional JSON.` }
         ]
       },
       config: { 
         responseMimeType: "application/json", 
         responseSchema: mealAnalysisSchema,
-        temperature: 0, // Faster, deterministic output
-        thinkingConfig: { thinkingBudget: 0 } // Disable reasoning overhead
+        temperature: 0.1
       }
     });
 
     const text = response.text;
-    if (!text) throw new Error("UPSTREAM_TIMEOUT");
+    if (!text) throw new Error("EMPTY_RESPONSE");
 
     return res.status(200).json(JSON.parse(text.trim()));
   } catch (error: any) {
-    console.error("Critical Cloud Failure:", error);
+    console.error("Analysis Error:", error);
     return res.status(500).json({ 
       error: 'Analysis Failed', 
       details: error.message 
