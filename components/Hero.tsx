@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Zap, Image as ImageIcon, RefreshCw, AlertCircle, Activity, ChevronRight, Fingerprint } from 'lucide-react';
+import { Zap, RefreshCw, AlertCircle, Fingerprint, Plus, Key } from 'lucide-react';
 import { SectionId } from '../types.ts';
 import { analyzeMealImage } from '../services/geminiService.ts';
 import { useApp } from '../context/AppContext.tsx';
@@ -11,10 +11,26 @@ const Hero: React.FC = () => {
   const [image, setImage] = useState<string | null>(null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const [isQuotaError, setIsQuotaError] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [currentGalleryIdx, setCurrentGalleryIdx] = useState(0);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const t = translations[language].hero;
+
+  const galleryImages = [
+    "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=1200&q=80",
+    "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=1200&q=80",
+    "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=1200&q=80",
+    "https://images.unsplash.com/photo-1544022613-e87ca75a784a?w=1200&q=80"
+  ];
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentGalleryIdx((prev) => (prev + 1) % galleryImages.length);
+    }, 4500);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     let interval: any;
@@ -53,25 +69,17 @@ const Hero: React.FC = () => {
   const handleAnalyze = async () => {
     if (!image || status === 'loading') return;
     setStatus('loading');
-    setErrorMessage('');
-    setLastAnalysisResult(null);
     try {
       const compressedImage = await compressImage(image);
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 25000));
-      const resultPromise = analyzeMealImage(compressedImage, { chronicDiseases: '', dietProgram: '', activityLevel: 'moderate' });
-      const result: any = await Promise.race([resultPromise, timeoutPromise]);
+      const result: any = await analyzeMealImage(compressedImage, { chronicDiseases: '', dietProgram: '', activityLevel: 'moderate' });
       if (result) {
-        const enriched = { ...result, timestamp: new Date().toLocaleString(), imageUrl: compressedImage };
-        setProgress(100);
-        setTimeout(() => {
-          setLastAnalysisResult(enriched);
-          incrementScans(enriched);
-          setStatus('idle');
-        }, 800);
-      } else { throw new Error("EMPTY"); }
+        setLastAnalysisResult({ ...result, timestamp: new Date().toLocaleString(), imageUrl: compressedImage });
+        incrementScans(result);
+        setStatus('idle');
+      }
     } catch (err: any) {
-      setErrorMessage(language === 'ar' ? 'فشل الاتصال: يرجى المحاولة لاحقاً.' : 'Sync Failed: Please retry.');
       setStatus('error');
+      setErrorMessage('CONNECTION ERROR');
     }
   };
 
@@ -82,156 +90,94 @@ const Hero: React.FC = () => {
       reader.onloadend = () => {
         setImage(reader.result as string);
         setStatus('idle');
-        setLastAnalysisResult(null);
       };
       reader.readAsDataURL(file);
     }
   };
 
   return (
-    <section id={SectionId.PHASE_01_SCAN} className="relative min-h-screen bg-brand-light dark:bg-brand-dark pt-32 pb-20 flex items-center transition-colors duration-500 overflow-hidden">
-      
-      {/* Bio-Digital Background Pattern */}
-      <div className="absolute inset-0 opacity-[0.015] dark:opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, #C2A36B 1px, transparent 1px)', backgroundSize: '50px 50px' }} />
-      
-      <div className="max-w-4xl mx-auto px-6 w-full relative z-10">
+    <section id={SectionId.PHASE_01_SCAN} className="relative min-h-screen bg-brand-light flex items-center overflow-hidden py-32 md:py-0">
+      <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-20 items-center">
         
-        {/* Unified Diagnostic Master Frame */}
-        <div className="relative aspect-[4/5] md:aspect-[1.1/1] bg-white dark:bg-zinc-950 border border-brand-dark/10 dark:border-white/5 rounded-[64px] overflow-hidden shadow-2xl group/scanner flex flex-col">
-            
-            {/* Precision Corner Brackets */}
-            <div className="absolute top-10 left-10 w-8 h-8 border-t-2 border-l-2 border-brand-primary/60 rounded-tl-xl z-20 group-hover/scanner:scale-110 group-hover/scanner:border-brand-primary transition-all duration-700" />
-            <div className="absolute top-10 right-10 w-8 h-8 border-t-2 border-r-2 border-brand-primary/60 rounded-tr-xl z-20 group-hover/scanner:scale-110 group-hover/scanner:border-brand-primary transition-all duration-700" />
-            <div className="absolute bottom-10 left-10 w-8 h-8 border-b-2 border-l-2 border-brand-primary/60 rounded-bl-xl z-20 group-hover/scanner:scale-110 group-hover/scanner:border-brand-primary transition-all duration-700" />
-            <div className="absolute bottom-10 right-10 w-8 h-8 border-b-2 border-r-2 border-brand-primary/60 rounded-br-xl z-20 group-hover/scanner:scale-110 group-hover/scanner:border-brand-primary transition-all duration-700" />
+        {/* Left: Text & Scanner Input */}
+        <div className="space-y-12 order-2 lg:order-1">
+          <div className="space-y-6">
+            <div className="inline-flex items-center gap-3 px-4 py-1.5 bg-brand-sand/50 text-brand-primary rounded-full border border-brand-primary/10">
+              <Fingerprint size={14} className="animate-pulse" />
+              <span className="text-[9px] font-black uppercase tracking-[0.4em]">{t.badge}</span>
+            </div>
+            <h1 className="text-5xl md:text-8xl font-serif font-bold text-brand-dark leading-[0.9] tracking-tighter">
+              Metabolic <br /> <span className="text-brand-primary italic font-normal">Diagnostic.</span>
+            </h1>
+            <p className="text-brand-dark/40 text-xl font-medium italic max-w-lg leading-relaxed border-l-2 border-brand-primary/20 pl-8">
+              Engineer your vitality through precision bio-imaging. Decrypt metabolic signatures in real-time.
+            </p>
+          </div>
 
-            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
-
-            {/* Content Logic based on State */}
-            {status === 'loading' ? (
-              <div className="flex-grow flex flex-col items-center justify-center space-y-12 animate-fade-in p-12">
-                 <div className="relative">
-                    <div className="w-28 h-28 rounded-full border-2 border-brand-primary/5 border-t-brand-primary animate-spin" />
-                    <Fingerprint size={32} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-brand-primary animate-pulse" />
-                 </div>
-                 <div className="w-full max-w-sm space-y-6 text-center">
-                    <div className="space-y-2">
-                       <h3 className="text-3xl font-serif font-bold tracking-tight text-brand-dark dark:text-white uppercase">{language === 'ar' ? 'جاري التحليل' : 'SYNCING BIOMETRICS'}</h3>
-                       <p className="text-[10px] font-black uppercase tracking-[0.5em] text-brand-primary">{progress}% COMPLETION</p>
-                    </div>
-                    <div className="h-1 bg-brand-dark/5 dark:bg-white/5 rounded-full overflow-hidden">
-                       <div className="h-full bg-brand-primary transition-all duration-500 shadow-glow" style={{ width: `${progress}%` }} />
-                    </div>
-                 </div>
-              </div>
-            ) : status === 'error' ? (
-              <div className="flex-grow flex flex-col items-center justify-center text-center p-12 space-y-10 animate-fade-in">
-                 <div className="w-24 h-24 bg-red-500/10 rounded-full flex items-center justify-center border border-red-500/20">
-                    <AlertCircle size={40} className="text-red-500" />
-                 </div>
-                 <div className="space-y-4">
-                    <h3 className="text-4xl font-serif font-bold text-brand-dark dark:text-white">{language === 'ar' ? 'فشل الاتصال' : 'CONNECTION LOST'}</h3>
-                    <p className="text-brand-dark/40 dark:text-white/40 font-medium italic">{errorMessage}</p>
-                 </div>
-                 <button onClick={() => setStatus('idle')} className="px-12 py-6 bg-brand-dark text-white rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-brand-primary transition-all">
-                    {language === 'ar' ? 'إعادة المحاولة' : 'RE-INITIALIZE'}
-                 </button>
-              </div>
-            ) : lastAnalysisResult ? (
-              <div className="flex-grow flex flex-col animate-fade-in bg-white dark:bg-zinc-950 overflow-hidden">
-                 <div className="p-8 border-b border-brand-dark/5 dark:border-white/5 flex justify-between items-center bg-zinc-50/50 dark:bg-zinc-900/30">
-                    <div className="flex items-center gap-4">
-                       <Activity size={14} className="text-brand-primary" />
-                       <h3 className="text-sm font-serif font-bold uppercase text-brand-dark dark:text-white tracking-tight">{lastAnalysisResult.summary}</h3>
-                    </div>
-                    <button onClick={() => { setImage(null); setLastAnalysisResult(null); }} className="p-3 bg-brand-dark/5 dark:bg-white/5 rounded-2xl hover:text-brand-primary transition-all">
-                       <RefreshCw size={14} />
-                    </button>
-                 </div>
-                 <div className="flex-grow flex flex-col md:flex-row p-10 gap-12 overflow-y-auto no-scrollbar">
-                    <div className="md:w-1/2 relative aspect-square rounded-[40px] overflow-hidden border border-brand-dark/5 dark:border-white/5">
-                       <img src={lastAnalysisResult.imageUrl} className="w-full h-full object-cover" alt="Scan" />
-                    </div>
-                    <div className="md:w-1/2 space-y-8 flex flex-col justify-center">
-                       <div className="grid grid-cols-2 gap-4">
-                          <div className="p-6 bg-brand-primary/5 rounded-3xl border border-brand-primary/10">
-                             <span className="text-[7px] font-black uppercase tracking-widest block opacity-40 mb-2">VITALITY INDEX</span>
-                             <span className="text-4xl font-serif font-bold text-brand-primary">{lastAnalysisResult.healthScore}%</span>
-                          </div>
-                          <div className="p-6 bg-brand-dark/5 dark:bg-white/5 rounded-3xl border border-brand-dark/5 dark:border-white/5">
-                             <span className="text-[7px] font-black uppercase tracking-widest block opacity-40 mb-2">ENERGY LOAD</span>
-                             <span className="text-4xl font-serif font-bold text-brand-dark dark:text-white">{lastAnalysisResult.totalCalories}</span>
-                          </div>
-                       </div>
-                       <p className="p-8 rounded-[40px] border border-brand-primary/20 bg-brand-primary/[0.03] italic text-sm leading-relaxed text-brand-dark/70 dark:text-white/60">
-                          "{lastAnalysisResult.personalizedAdvice}"
-                       </p>
-                    </div>
-                 </div>
-              </div>
-            ) : (
-              <div className="flex-grow flex flex-col items-center justify-center p-12 text-center space-y-12">
-                 
-                 {/* Internal Interface Elements */}
-                 <div className="space-y-8 max-w-lg mx-auto">
-                    <div className="inline-flex items-center gap-3 px-5 py-2 bg-brand-primary/10 text-brand-primary rounded-full border border-brand-primary/10 mx-auto">
-                       <div className="w-2 h-2 rounded-full bg-brand-primary animate-pulse" />
-                       <span className="text-[9px] font-black uppercase tracking-[0.6em]">{t.badge}</span>
-                    </div>
-
-                    <div className="space-y-6">
-                       <h1 className="text-5xl md:text-7xl font-serif font-bold text-brand-dark dark:text-white leading-[0.9] tracking-tighter">
-                          {t.title} <br />
-                          <span className="text-brand-primary italic font-normal">{t.subtitle}</span>
-                       </h1>
-                       <p className="text-brand-dark/50 dark:text-white/30 text-lg md:text-xl font-medium italic max-w-sm mx-auto leading-relaxed px-6">
-                          {t.desc}
-                       </p>
-                    </div>
-                 </div>
-
-                 {/* Interaction Zone */}
-                 <div className="relative w-full max-w-xs mx-auto">
-                    {image ? (
-                       <div className="animate-fade-in space-y-6">
-                          <div className="relative aspect-square rounded-[32px] overflow-hidden border-2 border-brand-primary/40 shadow-glow">
-                             <img src={image} className="w-full h-full object-cover" alt="Preview" />
-                             <div className="absolute inset-0 bg-brand-dark/40 flex items-center justify-center">
-                                <button onClick={handleAnalyze} className="p-6 bg-brand-primary text-white rounded-full shadow-2xl hover:scale-110 transition-all">
-                                   <Zap size={24} className="animate-pulse" />
-                                </button>
-                             </div>
-                          </div>
-                          <button onClick={() => setImage(null)} className="text-[9px] font-black uppercase tracking-widest opacity-30 hover:opacity-100 transition-opacity">
-                             {language === 'ar' ? 'إعادة اختيار الصورة' : 'CHOOSE DIFFERENT IMAGE'}
-                          </button>
-                       </div>
-                    ) : (
-                       <button 
-                         onClick={() => fileInputRef.current?.click()}
-                         className="group relative w-full py-8 bg-brand-dark dark:bg-brand-primary text-white dark:text-brand-dark rounded-full font-black text-[11px] uppercase tracking-[0.5em] transition-all duration-700 hover:scale-105 active:scale-95 shadow-3xl overflow-hidden"
-                       >
-                          <span className="relative z-10 flex items-center justify-center gap-4">
-                             {t.cta} <ImageIcon size={18} />
-                          </span>
-                          <div className="absolute inset-0 bg-gradient-to-r from-brand-primary to-brand-primary/80 opacity-0 group-hover:opacity-100 transition-opacity dark:from-white dark:to-white/90" />
-                       </button>
-                    )}
-                 </div>
-
-                 <div className="flex items-center gap-6 pt-4 text-brand-dark/10 dark:text-white/5">
-                    <div className="h-px w-12 bg-current" />
-                    <span className="text-[8px] font-black uppercase tracking-[0.4em]">Hardware V.4.0.2</span>
-                    <div className="h-px w-12 bg-current" />
-                 </div>
-              </div>
-            )}
+          <div className="w-full max-w-md bg-white border border-brand-dark/5 rounded-[40px] p-2 shadow-2xl overflow-hidden group">
+             <div 
+               onClick={() => fileInputRef.current?.click()}
+               className="relative aspect-video rounded-[32px] border border-dashed border-brand-dark/10 flex flex-col items-center justify-center cursor-pointer overflow-hidden transition-all group-hover:border-brand-primary/40"
+             >
+                {image ? (
+                   <div className="absolute inset-0">
+                      <img src={image} className="w-full h-full object-cover" alt="Preview" />
+                      <div className="absolute inset-0 bg-brand-dark/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                         <button onClick={(e) => { e.stopPropagation(); handleAnalyze(); }} className="bg-brand-primary text-white p-4 rounded-full shadow-2xl">
+                            <Zap size={24} className="animate-pulse" />
+                         </button>
+                      </div>
+                   </div>
+                ) : (
+                   <div className="flex flex-col items-center gap-4 opacity-30 group-hover:opacity-60 transition-all">
+                      <Plus size={32} strokeWidth={1} />
+                      <span className="text-[9px] font-black uppercase tracking-[0.5em]">{language === 'ar' ? 'رفع الإشارة الحيوية' : 'UPLOAD BIOMETRIC'}</span>
+                   </div>
+                )}
+                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
+             </div>
+             {image && status === 'idle' && (
+               <div className="p-4">
+                  <button onClick={handleAnalyze} className="w-full py-5 bg-brand-dark text-white rounded-3xl font-black text-[10px] uppercase tracking-[0.5em] hover:bg-brand-primary transition-all">
+                    {language === 'ar' ? 'بدء التحليل' : 'INITIALIZE SCAN'}
+                  </button>
+               </div>
+             )}
+          </div>
         </div>
-      </div>
 
-      {/* Atmospheric Background Accents */}
-      <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-brand-primary/5 rounded-full blur-[150px] -translate-y-1/2 translate-x-1/2 pointer-events-none opacity-40" />
-      <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-brand-primary/5 rounded-full blur-[120px] translate-y-1/2 -translate-x-1/2 pointer-events-none opacity-30" />
+        {/* Right: Engineered Frame Gallery */}
+        <div className="order-1 lg:order-2 flex justify-center lg:justify-end h-full">
+           <div className="relative w-full max-w-[540px] aspect-[4/5] bg-brand-sand/20 rounded-[56px] p-6 border border-brand-dark/5 shadow-inner">
+              <div className="relative w-full h-full rounded-[40px] overflow-hidden shadow-2xl">
+                 {galleryImages.map((img, idx) => (
+                    <img 
+                      key={idx}
+                      src={img} 
+                      className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-[2000ms] ${currentGalleryIdx === idx ? 'opacity-100' : 'opacity-0'}`}
+                      alt="Gallery"
+                    />
+                 ))}
+                 <div className="absolute inset-0 bg-gradient-to-t from-brand-dark/40 to-transparent" />
+                 
+                 {/* Precision Indicators */}
+                 <div className="absolute bottom-10 left-10 flex gap-2">
+                    {galleryImages.map((_, i) => (
+                      <div key={i} className={`h-1 rounded-full transition-all duration-700 ${currentGalleryIdx === i ? 'w-10 bg-brand-primary' : 'w-2 bg-white/30'}`} />
+                    ))}
+                 </div>
+              </div>
+              
+              {/* Luxury Badge floating on frame */}
+              <div className="absolute -top-6 -right-6 w-32 h-32 bg-white rounded-full shadow-2xl flex items-center justify-center p-4 border border-brand-dark/5">
+                 <div className="w-full h-full rounded-full border-2 border-dashed border-brand-primary/20 flex items-center justify-center text-center">
+                    <span className="text-[8px] font-black uppercase tracking-widest text-brand-dark/40 leading-tight">PRECISION <br /> GRADE</span>
+                 </div>
+              </div>
+           </div>
+        </div>
+
+      </div>
     </section>
   );
 };

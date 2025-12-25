@@ -30,11 +30,10 @@ const App: React.FC = () => {
   const [selectedGoal, setSelectedGoal] = useState<string | null>(null);
   const [lastAnalysisResult, setLastAnalysisResult] = useState<MealAnalysisResult | null>(null);
   const [isCloudConnected, setIsCloudConnected] = useState(false);
-  const [isApiKeyLinked, setIsApiKeyLinked] = useState(true);
+  const [isApiKeyLinked, setIsApiKeyLinked] = useState(false);
   
   const [theme, setTheme] = useState<Theme>(() => {
     const saved = localStorage.getItem('ot_theme') as Theme;
-    // Light is the default if no preference is saved
     return saved || 'light';
   });
 
