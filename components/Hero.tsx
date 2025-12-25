@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Zap, Fingerprint, Plus, Activity, Crosshair } from 'lucide-react';
+import { Zap, Fingerprint, Plus, Activity, Crosshair, Cpu, Share2, Shield } from 'lucide-react';
 import { SectionId } from '../types.ts';
 import { analyzeMealImage } from '../services/geminiService.ts';
 import { useApp } from '../context/AppContext.tsx';
@@ -12,6 +12,7 @@ const Hero: React.FC = () => {
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [currentGalleryIdx, setCurrentGalleryIdx] = useState(0);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [counters, setCounters] = useState({ bio: 98.2, neuro: 442 });
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const t = translations[language].hero;
@@ -31,7 +32,18 @@ const Hero: React.FC = () => {
       });
     };
     window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
+    
+    const interval = setInterval(() => {
+      setCounters({
+        bio: +(98.2 + Math.random() * 0.5).toFixed(1),
+        neuro: Math.floor(440 + Math.random() * 10)
+      });
+    }, 2000);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      clearInterval(interval);
+    };
   }, []);
 
   useEffect(() => {
@@ -45,7 +57,6 @@ const Hero: React.FC = () => {
     if (!image || status === 'loading') return;
     setStatus('loading');
     try {
-      // Mock logic as we don't have the compress helper here, assuming service handles it
       const result: any = await analyzeMealImage(image, { chronicDiseases: '', dietProgram: '', activityLevel: 'moderate' });
       if (result) {
         setLastAnalysisResult({ ...result, timestamp: new Date().toLocaleString(), imageUrl: image });
@@ -75,14 +86,17 @@ const Hero: React.FC = () => {
       {/* Cinematic Background Elements */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-0 right-0 w-1/3 h-full bg-brand-sand/10 skew-x-12 translate-x-1/2" />
-        <div className="absolute bottom-0 left-10 vertical-text text-[10px] font-black text-brand-dark/5 tracking-[1em] select-none">
-          PROTOCOL_SYSTEM_v4.2.0_INITIALIZED_STABLE
+        <div className="absolute bottom-0 left-10 vertical-text text-[10px] font-black text-brand-dark/5 tracking-[1em] select-none uppercase">
+          L_SYSTEM_v4.2.0_STABLE_LINK
         </div>
+        
+        {/* Dynamic Data Particles in Gap Area */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] opacity-[0.03] rotate-45 border border-brand-dark/10" />
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 w-full grid lg:grid-cols-12 gap-12 items-center relative z-10">
+      <div className="max-w-7xl mx-auto px-6 w-full grid lg:grid-cols-12 gap-0 items-center relative z-10">
         
-        {/* Left: Bio-Diagnostic Info & Pod (5 Columns) */}
+        {/* Left: Content (5 Columns) */}
         <div 
           className="lg:col-span-5 space-y-12 order-2 lg:order-1"
           style={{ transform: `translate(${mousePos.x * -0.2}px, ${mousePos.y * -0.2}px)` }}
@@ -98,8 +112,8 @@ const Hero: React.FC = () => {
                 Metabolic <br /> 
                 <span className="relative inline-block">
                   <span className="text-brand-primary italic font-normal">Diagnostic.</span>
-                  <div className="absolute -right-12 top-0 text-[10px] font-black text-brand-primary/30 uppercase tracking-widest hidden md:block">
-                    [ENG_01]
+                  <div className="absolute -right-16 top-0 text-[9px] font-black text-brand-primary/40 uppercase tracking-widest hidden md:block">
+                    [SYS_001]
                   </div>
                 </span>
               </h1>
@@ -121,71 +135,77 @@ const Hero: React.FC = () => {
                      <div className="absolute inset-0">
                         <img src={image} className="w-full h-full object-cover" alt="Biometric Subject" />
                         <div className="absolute inset-0 bg-brand-dark/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[2px]">
-                           <div className="relative">
-                             <div className="absolute -inset-4 border border-white/20 rounded-full animate-ping" />
-                             <button onClick={(e) => { e.stopPropagation(); handleAnalyze(); }} className="relative bg-brand-primary text-white p-6 rounded-full shadow-2xl scale-110 active:scale-95 transition-transform">
-                                <Zap size={28} />
-                             </button>
-                           </div>
+                           <button onClick={(e) => { e.stopPropagation(); handleAnalyze(); }} className="relative bg-brand-primary text-white p-6 rounded-full shadow-2xl scale-110 active:scale-95 transition-transform">
+                              <Zap size={28} />
+                           </button>
                         </div>
                      </div>
                   ) : (
                      <div className="flex flex-col items-center gap-6 group-hover:scale-105 transition-transform duration-700">
-                        <div className="relative">
-                          <div className="absolute -inset-6 border border-brand-primary/5 rounded-full animate-[spin_10s_linear_infinite]" />
-                          <div className="p-8 rounded-full border border-brand-dark/5 bg-white shadow-sm relative z-10">
-                             <Plus size={32} strokeWidth={1} className="text-brand-primary" />
-                          </div>
+                        <div className="p-8 rounded-full border border-brand-dark/5 bg-white shadow-sm">
+                           <Plus size={32} strokeWidth={1} className="text-brand-primary" />
                         </div>
-                        <span className="text-[10px] font-black uppercase tracking-[0.5em] text-brand-dark/30">{language === 'ar' ? 'رفع العينة الحيوية' : 'UPLOAD SPECIMEN'}</span>
+                        <span className="text-[10px] font-black uppercase tracking-[0.5em] text-brand-dark/30">UPLOAD SPECIMEN</span>
                      </div>
                   )}
                   <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
                </div>
-               
-               {image && status === 'idle' && (
-                 <div className="p-4 animate-fade-in-up">
-                    <button onClick={handleAnalyze} className="w-full py-5 bg-brand-dark text-white rounded-[28px] font-black text-[10px] uppercase tracking-[0.5em] hover:bg-brand-primary transition-all flex items-center justify-center gap-4 group/btn">
-                      {language === 'ar' ? 'بدء التحليل الجيني' : 'INITIALIZE GENETIC SCAN'}
-                      <Crosshair size={14} className="group-hover/btn:rotate-90 transition-transform" />
-                    </button>
-                 </div>
-               )}
             </div>
           </div>
         </div>
 
-        {/* Right: Immersive Circular Lens (7 Columns) */}
-        <div className="lg:col-span-7 order-1 lg:order-2 flex justify-center lg:justify-end perspective-1000">
+        {/* The Data Bridge (1 Column) - FILLING THE GAP */}
+        <div className="hidden lg:flex lg:col-span-2 h-full flex-col items-center justify-center relative overflow-hidden">
+           {/* Vertical Connector Line */}
+           <div className="w-[1px] h-[300px] bg-gradient-to-b from-transparent via-brand-dark/10 to-transparent relative">
+              {/* Pulsing Nodes */}
+              <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-1 h-1 bg-brand-primary rounded-full animate-ping" />
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 w-1 h-1 bg-brand-primary rounded-full animate-ping delay-300" />
+              <div className="absolute bottom-1/4 left-1/2 -translate-x-1/2 w-1 h-1 bg-brand-primary rounded-full animate-ping delay-700" />
+           </div>
+           
+           {/* Technical Widgets in Gap */}
+           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 space-y-12 w-full flex flex-col items-center">
+              <div className="text-center group cursor-crosshair">
+                 <div className="text-[10px] font-black text-brand-primary/40 uppercase tracking-widest mb-1">BIO_SYNC</div>
+                 <div className="text-xl font-serif font-bold text-brand-dark">{counters.bio}%</div>
+              </div>
+              
+              <div className="p-3 bg-brand-dark text-brand-primary rounded-full shadow-xl animate-spin-slow">
+                 <Cpu size={14} />
+              </div>
+
+              <div className="text-center">
+                 <div className="text-[10px] font-black text-brand-primary/40 uppercase tracking-widest mb-1">NEURAL_HZ</div>
+                 <div className="text-xl font-serif font-bold text-brand-dark">{counters.neuro}</div>
+              </div>
+           </div>
+           
+           {/* Horizontal Pulse Lines */}
+           <div className="absolute inset-0 flex flex-col justify-around py-20 pointer-events-none opacity-20">
+              <div className="w-full h-px bg-gradient-to-r from-transparent via-brand-primary to-transparent animate-pulse" />
+              <div className="w-full h-px bg-gradient-to-r from-transparent via-brand-primary to-transparent animate-pulse delay-500" />
+           </div>
+        </div>
+
+        {/* Right: Immersive Lens (5 Columns) */}
+        <div className="lg:col-span-5 order-1 lg:order-2 flex justify-center lg:justify-end perspective-1000">
            <div 
-             className="relative w-full max-w-[540px] aspect-square flex items-center justify-center"
+             className="relative w-full max-w-[480px] aspect-square flex items-center justify-center"
              style={{ transform: `translate(${mousePos.x * 0.3}px, ${mousePos.y * 0.3}px) rotateY(${mousePos.x * 0.1}deg) rotateX(${mousePos.y * -0.1}deg)` }}
            >
-              
-              {/* Diagnostic Radar Rings */}
-              <div className="absolute inset-0 border border-brand-primary/5 rounded-full animate-[spin_20s_linear_infinite]" />
-              <div className="absolute inset-8 border border-brand-primary/10 rounded-full animate-[spin_15s_linear_infinite_reverse] border-dashed" />
-              <div className="absolute inset-16 border-2 border-brand-primary/5 rounded-full animate-pulse" />
-
               {/* The Master Lens */}
-              <div className="relative w-full h-full rounded-full overflow-hidden shadow-[0_80px_150px_-40px_rgba(194,163,107,0.4)] bg-brand-dark border-[12px] border-white ring-1 ring-brand-dark/5 group">
+              <div className="relative w-full h-full rounded-full overflow-hidden shadow-[0_80px_150px_-40px_rgba(194,163,107,0.4)] bg-brand-dark border-[10px] border-white ring-1 ring-brand-dark/5 group">
                  {galleryItems.map((item, idx) => (
                     <div 
                       key={idx}
                       className={`absolute inset-0 transition-all duration-[2500ms] ease-in-out ${currentGalleryIdx === idx ? 'opacity-100 scale-100' : 'opacity-0 scale-110'}`}
                     >
-                      <img 
-                        src={item.img} 
-                        className="w-full h-full object-cover saturate-[0.8] contrast-[1.1]"
-                        alt="Gallery Specimen"
-                      />
+                      <img src={item.img} className="w-full h-full object-cover saturate-[0.8]" alt="Specimen" />
                       <div className="absolute inset-0 bg-gradient-to-tr from-brand-dark/60 via-brand-dark/20 to-transparent" />
-                      
-                      {/* High-Impact Technical Typography */}
                       <div className="absolute inset-0 flex flex-col items-center justify-center p-16 text-center">
                          <div className={`transition-all duration-1000 transform ${currentGalleryIdx === idx ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-20'}`}>
-                           <span className="text-[12px] font-black text-brand-primary uppercase tracking-[1em] mb-4 block">LEVEL_0{idx + 1}_SYNC</span>
-                           <h3 className="text-6xl md:text-8xl font-black text-white leading-[0.85] tracking-tighter drop-shadow-2xl">
+                           <h3 className="text-5xl md:text-6xl font-black text-white leading-[0.85] tracking-tighter drop-shadow-2xl">
                              {item.label}
                            </h3>
                          </div>
@@ -193,29 +213,23 @@ const Hero: React.FC = () => {
                     </div>
                  ))}
                  
-                 {/* Glass Reflection Highlight */}
+                 {/* Glass Highlight */}
                  <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none z-20" />
                  
-                 {/* Active Scanning Laser Line */}
+                 {/* Scanning Line */}
                  <div className="absolute top-0 left-0 w-full h-[2px] bg-brand-primary/40 shadow-[0_0_20px_#C2A36B] animate-scan z-30 opacity-50" />
               </div>
               
-              {/* Floating Bio-Data Tags */}
-              <div className="absolute -top-6 left-1/4 bg-white/90 backdrop-blur-md px-6 py-3 rounded-2xl border border-brand-dark/5 shadow-xl flex items-center gap-4 z-40">
-                 <div className="w-2 h-2 rounded-full bg-brand-primary animate-ping" />
-                 <span className="text-[10px] font-black text-brand-dark uppercase tracking-widest">NEURAL_STREAM_ACTIVE</span>
-              </div>
-
-              <div className="absolute -bottom-8 right-10 bg-brand-dark text-white px-8 py-5 rounded-[30px] shadow-3xl flex items-center gap-6 z-40 border border-white/10">
+              {/* Floating Meta Status */}
+              <div className="absolute -bottom-8 right-0 bg-brand-dark text-white px-8 py-5 rounded-[30px] shadow-3xl flex items-center gap-6 z-40 border border-white/10">
                  <div className="flex flex-col">
-                    <span className="text-[8px] font-black text-brand-primary uppercase tracking-widest">SYSTEM_PRECISION</span>
+                    <span className="text-[8px] font-black text-brand-primary uppercase tracking-widest">PRECISION</span>
                     <span className="text-2xl font-serif font-bold italic tracking-tighter">99.82%</span>
                  </div>
                  <div className="w-10 h-10 rounded-full border border-brand-primary/20 flex items-center justify-center">
                     <Fingerprint size={20} className="text-brand-primary" />
                  </div>
               </div>
-
            </div>
         </div>
 
