@@ -1,14 +1,27 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Microscope, Fingerprint, AlertCircle, CheckCircle2, RefreshCw, X, Flame, Activity, Zap } from 'lucide-react';
+import { Plus, Microscope, Fingerprint, AlertCircle, CheckCircle2, RefreshCw, X, Flame, Activity, Zap, ShieldAlert, Link as LinkIcon } from 'lucide-react';
 import { SectionId } from '../types.ts';
 import { useApp } from '../context/AppContext.tsx';
 import { GoogleGenAI } from "@google/genai";
 
+// Fix: Resolved TypeScript errors regarding the 'aistudio' property on the global window object.
+// The errors "All declarations must have identical modifiers" and "Subsequent property declarations must have the same type" 
+// are addressed by using the expected 'AIStudio' type name and applying the 'readonly' modifier common in host environments.
+declare global {
+  interface AIStudio {
+    hasSelectedApiKey: () => Promise<boolean>;
+    openSelectKey: () => Promise<void>;
+  }
+  interface Window {
+    readonly aistudio: AIStudio;
+  }
+}
+
 const Hero: React.FC = () => {
   const { incrementScans, setLastAnalysisResult, scrollTo, lastAnalysisResult } = useApp();
   const [image, setImage] = useState<string | null>(null);
-  const [status, setStatus] = useState<'idle' | 'loading' | 'error' | 'success'>('idle');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'error' | 'success' | 'key_missing'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [progress, setProgress] = useState(0);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
@@ -31,8 +44,28 @@ const Hero: React.FC = () => {
     };
   }, []);
 
+  // Fix: Implemented key selection flow according to Google GenAI guidelines.
+  // We assume the key selection was successful after triggering openSelectKey() due to potential race conditions.
+  const handleEstablishLink = async () => {
+    try {
+      await window.aistudio.openSelectKey();
+      // Assume the key selection was successful after triggering openSelectKey() and proceed to the app.
+      setStatus('idle');
+      if (image) handleAnalyze();
+    } catch (err) {
+      console.error("Key Selection Error:", err);
+    }
+  };
+
   const handleAnalyze = async () => {
     if (!image || status === 'loading') return;
+
+    // Fix: Using window.aistudio.hasSelectedApiKey() to verify key presence before initiating analysis.
+    const hasKey = await window.aistudio.hasSelectedApiKey();
+    if (!hasKey && !process.env.API_KEY) {
+      setStatus('key_missing');
+      return;
+    }
 
     setStatus('loading');
     setProgress(0);
@@ -40,26 +73,26 @@ const Hero: React.FC = () => {
     setShowResultCard(false);
 
     progressIntervalRef.current = window.setInterval(() => {
-      setProgress(prev => (prev >= 92 ? 92 : prev + Math.floor(Math.random() * 4) + 1));
-    }, 200);
+      setProgress(prev => (prev >= 95 ? 95 : prev + Math.floor(Math.random() * 3) + 1));
+    }, 150);
 
     try {
+      // Fix: Always create a new GoogleGenAI instance right before making an API call to ensure 
+      // the most up-to-date API key (e.g., from the selection dialog) is used.
       const apiKey = process.env.API_KEY;
-      if (!apiKey) throw new Error("API_KEY_MISSING");
-
-      const ai = new GoogleGenAI({ apiKey });
+      if (!apiKey) throw new Error("API_KEY_NOT_FOUND");
       
-      // Extract data and mime type properly
+      const ai = new GoogleGenAI({ apiKey: apiKey });
+      
       const mimeType = image.match(/data:(.*?);/)?.[1] || 'image/jpeg';
       const base64Data = image.split(',')[1];
       
       const response = await ai.models.generateContent({
-        // Using Flash Lite for better compatibility and speed on all tiers
-        model: 'gemini-flash-lite-latest',
+        model: 'gemini-3-flash-preview',
         contents: {
           parts: [
             { inlineData: { data: base64Data, mimeType: mimeType } },
-            { text: "Analyze this meal. Return ONLY a JSON object with: ingredients (array of {name, calories}), totalCalories (number), healthScore (number 0-100), macros ({protein, carbs, fat}), summary (string), and personalizedAdvice (string)." }
+            { text: "Analyze this meal strictly. Return ONLY a JSON object: {ingredients: [{name, calories}], totalCalories: number, healthScore: number, macros: {protein, carbs, fat}, summary: string, personalizedAdvice: string}. Accurate data only." }
           ]
         },
         config: { 
@@ -71,31 +104,28 @@ const Hero: React.FC = () => {
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       setProgress(100);
 
+      // Fix: Accessing .text property directly (not calling as a function) per latest SDK rules.
       const result = JSON.parse(response.text || '{}');
       
       if (result && result.totalCalories) {
         setLastAnalysisResult({ ...result, timestamp: new Date().toLocaleString(), imageUrl: image });
         incrementScans(result);
         setStatus('success');
-        
-        // Brief delay to show success before showing card
-        setTimeout(() => {
-          setShowResultCard(true);
-        }, 800);
+        setTimeout(() => setShowResultCard(true), 800);
       } else {
-        throw new Error("UNABLE_TO_PARSE_MEAL_DATA");
+        throw new Error("MALFORMED_DATA_RECEPTION");
       }
     } catch (err: any) {
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-      setStatus('error');
-      console.error("Scanner Diagnostic Fault:", err);
-      
-      if (err.message?.includes("403") || err.message?.includes("permission")) {
-        setErrorMessage("Access Restricted: System requires high-tier verification.");
-      } else if (err.message?.includes("quota")) {
-        setErrorMessage("Capacity Reached: System cooling down. Retry in 60s.");
+      console.error("Scanner Fault:", err);
+
+      // Fix: If the request fails with "Requested entity was not found.", 
+      // reset key state and prompt user to select a key again via openSelectKey().
+      if (err.message?.includes("not found") || err.message?.includes("key") || err.message?.includes("API_KEY_NOT_FOUND")) {
+        setStatus('key_missing');
       } else {
-        setErrorMessage(err.message || "Connection Interrupted during data extraction.");
+        setStatus('error');
+        setErrorMessage(err.message || "Diagnostic connection failure.");
       }
     }
   };
@@ -148,7 +178,6 @@ const Hero: React.FC = () => {
                </div>
             </div>
 
-            {/* Diagnostic Result Card (Appears after success) */}
             {showResultCard && lastAnalysisResult && (
               <div className="bg-white rounded-[40px] border border-brand-primary/20 p-10 shadow-3xl animate-fade-in-up relative overflow-hidden group/card">
                 <div className="absolute top-0 left-0 w-full h-1 bg-brand-primary" />
@@ -169,22 +198,19 @@ const Hero: React.FC = () => {
                   </div>
 
                   <div className="grid grid-cols-3 gap-6">
-                     <div className="space-y-1">
-                        <div className="flex items-center gap-2 text-brand-dark/40">
-                           <Flame size={12} /> <span className="text-[8px] font-black uppercase tracking-widest">Calories</span>
-                        </div>
+                     <div className="space-y-1 text-center">
+                        <Flame size={12} className="mx-auto text-brand-primary mb-1" />
+                        <span className="text-[8px] font-black uppercase tracking-widest block text-brand-dark/40">Calories</span>
                         <p className="text-xl font-serif font-bold">{lastAnalysisResult.totalCalories}</p>
                      </div>
-                     <div className="space-y-1">
-                        <div className="flex items-center gap-2 text-brand-dark/40">
-                           <Activity size={12} /> <span className="text-[8px] font-black uppercase tracking-widest">Protein</span>
-                        </div>
+                     <div className="space-y-1 text-center">
+                        <Activity size={12} className="mx-auto text-brand-primary mb-1" />
+                        <span className="text-[8px] font-black uppercase tracking-widest block text-brand-dark/40">Protein</span>
                         <p className="text-xl font-serif font-bold">{lastAnalysisResult.macros.protein}g</p>
                      </div>
-                     <div className="space-y-1">
-                        <div className="flex items-center gap-2 text-brand-dark/40">
-                           <Zap size={12} /> <span className="text-[8px] font-black uppercase tracking-widest">Fiber</span>
-                        </div>
+                     <div className="space-y-1 text-center">
+                        <Zap size={12} className="mx-auto text-brand-primary mb-1" />
+                        <span className="text-[8px] font-black uppercase tracking-widest block text-brand-dark/40">Carbs</span>
                         <p className="text-xl font-serif font-bold">{lastAnalysisResult.macros.carbs}g</p>
                      </div>
                   </div>
@@ -193,7 +219,7 @@ const Hero: React.FC = () => {
                     onClick={() => scrollTo(SectionId.PHASE_03_SYNTHESIS)}
                     className="w-full py-5 bg-brand-dark text-white rounded-2xl text-[9px] font-black uppercase tracking-[0.5em] flex items-center justify-center gap-4 hover:bg-brand-primary transition-all"
                   >
-                    Generate Protocol Synergy <RefreshCw size={14} />
+                    SYNC PROTOCOL <RefreshCw size={14} />
                   </button>
                 </div>
               </div>
@@ -243,31 +269,36 @@ const Hero: React.FC = () => {
                            </div>
                            <span className="text-[8px] font-black text-brand-primary uppercase tracking-[0.6em] animate-pulse">Extracting_Data</span>
                         </div>
+                      ) : status === 'key_missing' ? (
+                        <div className="absolute inset-0 bg-brand-dark/95 backdrop-blur-xl flex flex-col items-center justify-center z-50 text-white p-10 text-center animate-fade-in">
+                           <ShieldAlert size={48} className="mb-6 text-brand-primary" />
+                           <span className="text-[12px] font-black uppercase tracking-[0.4em] mb-4 text-brand-primary">Security Bridge Required</span>
+                           <p className="text-[10px] opacity-60 leading-relaxed mb-10">To initialize the diagnostic scanner, you must establish a secure link with your System API Key. <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-brand-primary underline ml-1">Learn more about billing.</a></p>
+                           <button 
+                             onClick={handleEstablishLink}
+                             className="flex items-center justify-center gap-3 w-full py-5 bg-brand-primary text-brand-dark rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] hover:bg-white transition-all shadow-glow"
+                           >
+                             <LinkIcon size={14} /> Establish System Link
+                           </button>
+                           <button onClick={resetScanner} className="mt-6 text-[8px] opacity-30 uppercase tracking-widest hover:opacity-100">Cancel Diagnostic</button>
+                        </div>
                       ) : status === 'error' ? (
                         <div className="absolute inset-0 bg-red-950/95 backdrop-blur-xl flex flex-col items-center justify-center z-50 text-white p-8 text-center animate-fade-in">
                            <AlertCircle size={48} className="mb-4 text-red-500" />
                            <span className="text-[12px] font-black uppercase tracking-widest mb-2 text-red-400">Analysis Failed</span>
                            <p className="text-[10px] opacity-70 leading-relaxed mb-8">{errorMessage}</p>
                            <div className="flex flex-col w-full gap-3">
-                              <button 
-                                onClick={handleAnalyze}
-                                className="flex items-center justify-center gap-2 px-8 py-3 bg-brand-primary rounded-full text-[9px] font-black uppercase tracking-widest hover:bg-white hover:text-brand-dark transition-all"
-                              >
+                              <button onClick={handleAnalyze} className="flex items-center justify-center gap-2 px-8 py-3 bg-brand-primary rounded-full text-[9px] font-black uppercase tracking-widest hover:bg-white hover:text-brand-dark transition-all">
                                 <RefreshCw size={12} /> Force Retry
                               </button>
-                              <button 
-                                onClick={resetScanner}
-                                className="text-[9px] font-bold uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity"
-                              >
-                                Clear Image
-                              </button>
+                              <button onClick={resetScanner} className="text-[9px] font-bold uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity">Clear Specimen</button>
                            </div>
                         </div>
                       ) : status === 'success' ? (
                         <div className="absolute inset-0 bg-brand-primary/95 backdrop-blur-md flex flex-col items-center justify-center z-50 text-white animate-fade-in">
                            <CheckCircle2 size={56} className="mb-4" />
-                           <span className="text-[10px] font-black uppercase tracking-widest">SUCCESS_READY</span>
-                           <button onClick={() => setShowResultCard(true)} className="mt-6 text-[9px] font-black uppercase tracking-widest border-b border-white/20 pb-1">View Results</button>
+                           <span className="text-[10px] font-black uppercase tracking-widest">DIAGNOSTIC_COMPLETE</span>
+                           <button onClick={() => setShowResultCard(true)} className="mt-6 text-[9px] font-black uppercase tracking-widest border-b border-white/20 pb-1">Review Ledger</button>
                         </div>
                       ) : (
                         <div className="absolute inset-0 bg-brand-dark/40 opacity-0 group-hover:opacity-100 transition-all flex flex-col items-center justify-center gap-6 z-40">
@@ -303,7 +334,7 @@ const Hero: React.FC = () => {
                </div>
 
                <div className="absolute -bottom-10 right-12 opacity-10">
-                  <p className="text-[6px] font-black uppercase tracking-[0.6em]">BIO_OPTIC_LITE_STABLE</p>
+                  <p className="text-[6px] font-black uppercase tracking-[0.6em]">BIO_OPTIC_V5_SECURE</p>
                </div>
              </div>
           </div>
