@@ -142,4 +142,42 @@ const SmartNutritionTool: React.FC = () => {
                   </div>
                 ) : result ? (
                   <div className="flex flex-col h-full animate-fade-in text-brand-dark dark:text-white">
-                    <div className="p-10 border-b border-brand-dark/[0.03] dark:border
+                    <div className="p-10 border-b border-brand-dark/[0.03] dark:border-white/5 flex justify-between items-center">
+                       <h3 className="text-4xl font-serif font-bold tracking-tighter">Metabolic <span className="text-brand-primary italic">Blueprint.</span></h3>
+                       <span className="text-4xl font-serif font-bold text-brand-primary">{result.totalCalories} <span className="text-xs ml-1">KCAL</span></span>
+                    </div>
+                    <div className="p-8 grid grid-cols-1 md:grid-cols-3 gap-6 flex-grow">
+                       {[
+                         { l: 'SUNRISE', i: <Sun size={20} />, d: result.breakfast },
+                         { l: 'PEAK', i: <CloudSun size={20} />, d: result.lunch },
+                         { l: 'ZENITH', i: <Moon size={20} />, d: result.dinner }
+                       ].map((m, idx) => (
+                         <div key={idx} className="p-8 rounded-[40px] bg-brand-cream/20 dark:bg-brand-dark flex flex-col items-center justify-center text-brand-primary shadow-xl">
+                            {m.i}
+                            <h4 className="text-xl font-serif font-bold line-clamp-2 mt-4 text-center">{m.d?.name}</h4>
+                            <p className="text-[10px] text-brand-dark/40 dark:text-white/20 italic leading-relaxed line-clamp-3 text-center">
+                              {m.d?.description}
+                            </p>
+                         </div>
+                       ))}
+                    </div>
+                    <div className="m-8 mt-0 p-8 bg-brand-primary rounded-[40px] flex items-center gap-8 shadow-3xl text-white">
+                       <Sparkles size={24} className="shrink-0" />
+                       <p className="text-md italic font-semibold leading-relaxed tracking-tight">"{result.advice}"</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center p-12 text-center space-y-8 opacity-20">
+                     <Beaker size={48} strokeWidth={0.8} className="text-brand-primary" />
+                     <h4 className="text-2xl font-serif font-bold italic">Awaiting Selection.</h4>
+                  </div>
+                )}
+             </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+export default SmartNutritionTool;

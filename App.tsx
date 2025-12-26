@@ -32,9 +32,10 @@ const App: React.FC = () => {
   const [isCloudConnected, setIsCloudConnected] = useState(false);
   const [isApiKeyLinked, setIsApiKeyLinked] = useState(false);
   
+  // Changed default theme to 'dark' for premium lab aesthetic
   const [theme, setTheme] = useState<Theme>(() => {
     const saved = localStorage.getItem('ot_theme') as Theme;
-    return saved || 'light';
+    return saved || 'dark';
   });
 
   const [history, setHistory] = useState<MealAnalysisResult[]>(() => {
@@ -59,8 +60,13 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const root = window.document.documentElement;
-    if (theme === 'dark') root.classList.add('dark');
-    else root.classList.remove('dark');
+    if (theme === 'dark') {
+      root.classList.add('dark');
+      root.style.backgroundColor = '#0F0E0C'; // Espresso Black
+    } else {
+      root.classList.remove('dark');
+      root.style.backgroundColor = '#FDFDFD'; // Clean White
+    }
     localStorage.setItem('ot_theme', theme);
   }, [theme]);
 
