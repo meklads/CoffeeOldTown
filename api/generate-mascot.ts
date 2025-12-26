@@ -4,17 +4,17 @@ import { GoogleGenAI } from "@google/genai";
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   
-  const { prompt } = req.body;
   const apiKey = process.env.API_KEY;
-
   if (!apiKey) return res.status(500).json({ error: 'SERVER_KEY_MISSING' });
+
+  const { prompt } = req.body;
 
   try {
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
-        parts: [{ text: `High-quality, professional, minimalist mascot icon for: ${prompt}. Vector style, sharp edges, isolated on a clean white background.` }]
+        parts: [{ text: `High-end laboratory icon, minimalist vector style for: ${prompt}. Pure white background, high contrast, golden accents.` }]
       },
       config: { imageConfig: { aspectRatio: "1:1" } }
     });
@@ -31,6 +31,6 @@ export default async function handler(req: any, res: any) {
 
     return res.status(200).json({ imageUrl });
   } catch (error) {
-    return res.status(500).json({ error: 'Failed to generate mascot' });
+    return res.status(500).json({ error: 'Visual synthesis failed' });
   }
 }
