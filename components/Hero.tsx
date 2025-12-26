@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Microscope, Fingerprint, CheckCircle2, RotateCcw, Database, Sparkles, Flame, Activity, AlertTriangle, RefreshCcw, Baby, HeartPulse, Zap, Settings2 } from 'lucide-react';
+import { Plus, Microscope, Fingerprint, CheckCircle2, RotateCcw, Database, Sparkles, Flame, Activity, AlertTriangle, RefreshCcw, Baby, HeartPulse, Zap, Settings2, ShieldCheck, Binary } from 'lucide-react';
 import { SectionId, BioPersona } from '../types.ts';
 import { useApp } from '../context/AppContext.tsx';
 import { analyzeMealImage } from '../services/geminiService.ts';
@@ -12,7 +12,7 @@ const Hero: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [progress, setProgress] = useState(0);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-  const [isActivating, setIsActivating] = useState<BioPersona | null>(null);
+  const [isCalibrating, setIsCalibrating] = useState(false);
   
   const isAr = language === 'ar';
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -22,22 +22,21 @@ const Hero: React.FC = () => {
     const handleMouseMove = (e: MouseEvent) => {
       if (window.innerWidth > 1024) {
         setMousePos({
-          x: (e.clientX / window.innerWidth - 0.5) * 10,
-          y: (e.clientY / window.innerHeight - 0.5) * 10
+          x: (e.clientX / window.innerWidth - 0.5) * 8,
+          y: (e.clientY / window.innerHeight - 0.5) * 8
         });
       }
     };
     window.addEventListener('mousemove', handleMouseMove);
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-    };
+    return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
   const handlePersonaSelect = (id: BioPersona) => {
-    setIsActivating(id);
+    if (id === currentPersona) return;
+    setIsCalibrating(true);
     setCurrentPersona(id);
-    setTimeout(() => setIsActivating(null), 800);
+    // Visual feedback for "Loading Protocol"
+    setTimeout(() => setIsCalibrating(false), 800);
   };
 
   const handleAnalyze = async () => {
@@ -88,41 +87,47 @@ const Hero: React.FC = () => {
   };
 
   const personaConfigs = [
-    { id: 'GENERAL' as BioPersona, icon: <Fingerprint size={18} />, label: isAr ? 'عام' : 'GENERAL' },
-    { id: 'PREGNANCY' as BioPersona, icon: <Baby size={18} />, label: isAr ? 'حمل' : 'PREGNANCY' },
-    { id: 'DIABETIC' as BioPersona, icon: <HeartPulse size={18} />, label: isAr ? 'سكري' : 'DIABETIC' },
-    { id: 'ATHLETE' as BioPersona, icon: <Zap size={18} />, label: isAr ? 'رياضي' : 'ATHLETE' },
+    { id: 'GENERAL' as BioPersona, icon: <Fingerprint size={18} />, label: isAr ? 'عام' : 'GENERAL', color: 'brand-primary' },
+    { id: 'PREGNANCY' as BioPersona, icon: <Baby size={18} />, label: isAr ? 'حمل' : 'PREGNANCY', color: 'rose-400' },
+    { id: 'DIABETIC' as BioPersona, icon: <HeartPulse size={18} />, label: isAr ? 'سكري' : 'DIABETIC', color: 'emerald-400' },
+    { id: 'ATHLETE' as BioPersona, icon: <Zap size={18} />, label: isAr ? 'رياضي' : 'ATHLETE', color: 'blue-400' },
   ];
 
-  return (
-    <section id={SectionId.PHASE_01_SCAN} className="relative min-h-screen bg-brand-light dark:bg-brand-dark flex items-center overflow-hidden pt-32 pb-20 transition-colors duration-1000 bg-grain">
-      
-      {/* Background Decorative Elements */}
-      <div className="absolute inset-0 pointer-events-none opacity-[0.03] dark:opacity-[0.02] z-0" style={{ backgroundImage: 'radial-gradient(#C2A36B 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
-      <div className="absolute top-1/4 -right-20 w-96 h-96 bg-brand-primary/10 rounded-full blur-[120px] animate-pulse-slow" />
-      <div className="absolute bottom-1/4 -left-20 w-80 h-80 bg-brand-primary/5 rounded-full blur-[100px] animate-pulse-slow" style={{ animationDelay: '2s' }} />
+  const currentConfig = personaConfigs.find(c => c.id === currentPersona);
 
+  return (
+    <section id={SectionId.PHASE_01_SCAN} className="relative min-h-screen bg-brand-light dark:bg-brand-dark flex items-center overflow-hidden pt-32 pb-20 transition-colors duration-1000">
+      
+      {/* Bio-Bridge Background Elements */}
+      <div className="absolute inset-0 pointer-events-none opacity-[0.03] dark:opacity-[0.02] z-0" 
+           style={{ backgroundImage: 'radial-gradient(#C2A36B 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+      
       <div className="max-w-7xl w-full mx-auto px-6 z-10">
-        <div className="grid lg:grid-cols-12 gap-12 lg:gap-20 items-center">
+        <div className="grid lg:grid-cols-12 gap-12 lg:gap-24 items-center">
           
-          {/* Left Column: Title and Persona Calibration */}
+          {/* Left Panel: Persona Controls & Status */}
           <div className="lg:col-span-5 space-y-12 text-center lg:text-left">
             <div className="space-y-6">
               <div className="inline-flex items-center gap-3 px-4 py-1.5 bg-white dark:bg-white/5 border border-brand-dark/[0.05] dark:border-white/5 rounded-full shadow-sm mx-auto lg:mx-0">
-                <Settings2 size={12} className="text-brand-primary animate-spin-slow" />
-                <span className="text-[8px] font-black uppercase tracking-[0.5em] text-brand-dark/40 dark:text-white/40 italic">CALIBRATION_CORE_v2.5</span>
+                <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${isCalibrating ? 'bg-brand-primary' : 'bg-emerald-500'}`} />
+                <span className="text-[8px] font-black uppercase tracking-[0.5em] text-brand-dark/40 dark:text-white/40 italic">
+                  {isCalibrating ? 'CALIBRATING_NODE...' : 'SYSTEM_STABLE'}
+                </span>
               </div>
-              <h1 className="text-6xl md:text-8xl lg:text-[100px] font-serif font-bold text-brand-dark dark:text-white leading-[0.85] tracking-tighter">
+              <h1 className="text-5xl md:text-8xl lg:text-[100px] font-serif font-bold text-brand-dark dark:text-white leading-[0.85] tracking-tighter">
                 Diagnostic <br /><span className="text-brand-primary italic font-normal">Command.</span>
               </h1>
-              <p className="text-brand-dark/40 dark:text-white/30 text-[11px] font-bold tracking-[0.3em] max-w-sm mx-auto lg:mx-0 uppercase leading-relaxed">
-                Precision biometric scanning with specialized metabolic protocols.
+              <p className="text-brand-dark/40 dark:text-white/30 text-[10px] md:text-[11px] font-bold tracking-[0.3em] max-w-sm mx-auto lg:mx-0 uppercase leading-relaxed">
+                Precision bio-scanning engineered for maternal, athletic, and metabolic oversight.
               </p>
             </div>
 
-            {/* Persona Selector Nodes - The Hybrid Vision Part */}
-            <div className="space-y-6">
-               <span className="text-[9px] font-black text-brand-primary uppercase tracking-[0.5em] block">{isAr ? 'اختر البروتوكول الحيوي' : 'SELECT BIO-PROTOCOL'}</span>
+            {/* Persona Selection Sidebar Integrated */}
+            <div className="space-y-6 relative">
+               <div className="flex items-center gap-4 mb-2">
+                  <Settings2 size={14} className="text-brand-primary animate-spin-slow" />
+                  <span className="text-[9px] font-black text-brand-primary uppercase tracking-[0.4em]">Protocol Selection</span>
+               </div>
                <div className="grid grid-cols-2 gap-3 max-w-md mx-auto lg:mx-0">
                   {personaConfigs.map((config) => (
                     <button
@@ -138,39 +143,40 @@ const Hero: React.FC = () => {
                       </div>
                       <span className="text-[10px] font-black uppercase tracking-widest">{config.label}</span>
                       {currentPersona === config.id && (
-                        <div className="absolute right-4 w-1.5 h-1.5 rounded-full bg-brand-dark animate-pulse" />
+                        <div className="absolute right-4 w-1 h-1 rounded-full bg-brand-dark animate-pulse" />
                       )}
                     </button>
                   ))}
                </div>
             </div>
 
-            {/* Live Status Indicators */}
-            <div className="flex flex-wrap justify-center lg:justify-start gap-8 pt-6 opacity-40">
+            {/* Diagnostic Stats */}
+            <div className="flex flex-wrap justify-center lg:justify-start gap-8 pt-6 opacity-30">
                <div className="flex items-center gap-3">
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-[8px] font-black uppercase tracking-widest">GEMINI_3_FLASH_LINKED</span>
+                  <Binary size={14} className="text-brand-primary" />
+                  <span className="text-[7px] font-black uppercase tracking-widest">GEMINI_3_FLASH_ACTIVE</span>
                </div>
                <div className="flex items-center gap-3">
-                  <div className="w-1.5 h-1.5 rounded-full bg-brand-primary animate-pulse" />
-                  <span className="text-[8px] font-black uppercase tracking-widest">METABOLIC_SYNC_ACTIVE</span>
+                  <ShieldCheck size={14} className="text-brand-primary" />
+                  <span className="text-[7px] font-black uppercase tracking-widest">METABOLIC_ENCRYPTION_v2</span>
                </div>
             </div>
           </div>
 
-          {/* Right Column: The Scanner Specimen Chamber */}
+          {/* Right Panel: The Bio-Scanner Chamber */}
           <div className="lg:col-span-7 flex justify-center items-center">
             <div 
                className="relative w-full max-w-[460px] transition-transform duration-1000"
                style={{ transform: window.innerWidth > 1024 ? `translate(${mousePos.x}px, ${mousePos.y}px)` : 'none' }}
              >
-               {/* Decorative Ring */}
-               <div className="absolute -inset-10 border border-brand-primary/5 rounded-full animate-spin-slow pointer-events-none" />
-               <div className="absolute -inset-20 border border-brand-primary/5 rounded-full animate-spin-slow pointer-events-none" style={{ animationDirection: 'reverse', animationDuration: '20s' }} />
+               {/* Aesthetic Glow Ring */}
+               <div className="absolute -inset-10 border border-brand-primary/5 rounded-full animate-[spin_20s_linear_infinite] pointer-events-none" />
+               <div className="absolute -inset-20 border border-brand-primary/5 rounded-full animate-[spin_30s_linear_infinite] pointer-events-none" style={{ animationDirection: 'reverse' }} />
 
                <div className="relative aspect-[3/4] rounded-[70px] border-4 border-white dark:border-zinc-900 bg-white dark:bg-zinc-900/60 overflow-hidden shadow-4xl z-20 group">
-                  {/* Persona Change Pulse Effect */}
-                  {isActivating && (
+                  
+                  {/* Calibrating Pulse */}
+                  {isCalibrating && (
                     <div className="absolute inset-0 z-[60] bg-brand-primary/10 backdrop-blur-[2px] flex items-center justify-center animate-fade-in">
                        <div className="w-32 h-32 rounded-full border-4 border-brand-primary animate-ping opacity-20" />
                     </div>
@@ -192,7 +198,7 @@ const Hero: React.FC = () => {
                               </svg>
                               <div className="absolute inset-0 flex items-center justify-center text-3xl font-serif font-bold">{progress}%</div>
                            </div>
-                           <span className="text-[9px] font-black text-brand-primary uppercase tracking-[0.6em] animate-pulse">EXTRACTING_DATA_PATH_{currentPersona}</span>
+                           <span className="text-[9px] font-black text-brand-primary uppercase tracking-[0.6em] animate-pulse">EXTRACTING_DATA_FOR_{currentPersona}</span>
                         </div>
                       )}
 
@@ -201,7 +207,7 @@ const Hero: React.FC = () => {
                            <div className="flex justify-between items-start mb-8 shrink-0">
                               <div className="bg-brand-primary/20 p-2.5 rounded-2xl border border-brand-primary/30 text-brand-primary flex items-center gap-2">
                                 <CheckCircle2 size={16} />
-                                <span className="text-[8px] font-black uppercase tracking-widest">{currentPersona} PROTOCOL_OK</span>
+                                <span className="text-[8px] font-black uppercase tracking-widest">{currentPersona}_VALIDATED</span>
                               </div>
                               <button onClick={resetScanner} className="p-2 text-white/20 hover:text-white transition-colors"><RotateCcw size={18} /></button>
                            </div>
@@ -213,10 +219,10 @@ const Hero: React.FC = () => {
                               </div>
 
                               {lastAnalysisResult.warnings && lastAnalysisResult.warnings.length > 0 && (
-                                <div className="bg-red-500/10 border border-red-500/20 p-5 rounded-3xl space-y-3">
+                                <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-3xl space-y-3">
                                    <div className="flex items-center gap-2 text-red-400">
                                       <AlertTriangle size={14} />
-                                      <span className="text-[8px] font-black uppercase tracking-widest">CRITICAL_WARNING</span>
+                                      <span className="text-[8px] font-black uppercase tracking-widest">CONTRAINDICATION_ALERT</span>
                                    </div>
                                    {lastAnalysisResult.warnings.map((w, i) => (
                                      <p key={i} className="text-[11px] text-white/80 font-medium italic leading-relaxed">• {w}</p>
@@ -230,7 +236,7 @@ const Hero: React.FC = () => {
                                     <p className="text-2xl font-serif font-bold">{lastAnalysisResult.totalCalories}<span className="text-[10px] ml-1 opacity-40">kcal</span></p>
                                  </div>
                                  <div className="bg-white/5 p-5 rounded-3xl border border-white/5">
-                                    <div className="flex items-center gap-2 opacity-30 mb-2"><Activity size={12} /><span className="text-[7px] font-black uppercase">Vitality Score</span></div>
+                                    <div className="flex items-center gap-2 opacity-30 mb-2"><Activity size={12} /><span className="text-[7px] font-black uppercase">Health %</span></div>
                                     <p className="text-2xl font-serif font-bold text-brand-primary">{lastAnalysisResult.healthScore}%</p>
                                  </div>
                               </div>
@@ -240,27 +246,27 @@ const Hero: React.FC = () => {
                               </div>
                            </div>
 
-                           <button onClick={() => scrollTo(SectionId.PHASE_03_SYNTHESIS)} className="w-full mt-10 py-6 bg-brand-primary text-brand-dark rounded-3xl text-[10px] font-black uppercase tracking-[0.4em] shadow-glow shrink-0 transition-transform active:scale-95">Generate Full Blueprint</button>
+                           <button onClick={() => scrollTo(SectionId.PHASE_03_SYNTHESIS)} className="w-full mt-10 py-6 bg-brand-primary text-brand-dark rounded-3xl text-[10px] font-black uppercase tracking-[0.4em] shadow-glow shrink-0 transition-transform active:scale-95">View Bio-Blueprint</button>
                         </div>
                       )}
 
-                      {/* Recalibration Logic */}
+                      {/* Recalibration Logic Overlay */}
                       {status !== 'loading' && !lastAnalysisResult && (
                         <div className="absolute inset-0 bg-brand-dark/80 backdrop-blur-[6px] flex flex-col items-center justify-center p-10 text-center animate-fade-in text-white z-40">
                            <RefreshCcw size={48} className="text-brand-primary mb-6 animate-spin-slow opacity-60" />
                            <h4 className="text-3xl font-serif font-bold italic mb-4">
-                              {isAr ? 'إعادة معايرة مطلوبة' : 'Recalibration Required'}
+                              {isAr ? 'إعادة معايرة حيوية' : 'Bio-Recalibration'}
                            </h4>
                            <p className="text-[10px] text-white/50 font-black uppercase tracking-[0.3em] mb-10 leading-relaxed max-w-xs">
                               {isAr 
                                 ? `بروتوكول [${currentPersona}] نشط حالياً. يرجى تفعيل المسح لمطابقة البيانات الحيوية الجديدة.` 
-                                : `[${currentPersona}] Protocol is now active. Re-analyze to synchronize bio-data.`}
+                                : `[${currentPersona}] Protocol active. Trigger re-scan to synchronize diagnostic data.`}
                            </p>
                            <button 
                              onClick={handleAnalyze} 
                              className="bg-brand-primary text-brand-dark px-12 py-6 rounded-3xl font-black text-[10px] uppercase tracking-[0.5em] shadow-glow hover:scale-105 active:scale-95 transition-all"
                            >
-                              {isAr ? 'تحديث التشخيص' : 'UPDATE DIAGNOSTIC'}
+                              {isAr ? 'تحديث التحليل' : 'SYNC DIAGNOSTICS'}
                            </button>
                            <button onClick={resetScanner} className="mt-6 text-white/20 text-[9px] font-black uppercase tracking-widest hover:text-white transition-colors">
                               {isAr ? 'تجاهل العينة' : 'DISCARD SPECIMEN'}
@@ -277,24 +283,24 @@ const Hero: React.FC = () => {
                          </div>
                       </div>
                       <div className="text-center space-y-4">
-                        <h4 className="text-3xl font-serif font-bold text-brand-dark/40 dark:text-white/20 tracking-tight italic group-hover/scanner:text-brand-primary/40 transition-colors">Insert Specimen</h4>
-                        <span className="text-[8px] font-black text-brand-dark/20 dark:text-white/10 uppercase tracking-[0.8em]">CALIBRATED_FOR_{currentPersona}</span>
+                        <h4 className="text-3xl font-serif font-bold text-brand-dark/40 dark:text-white/20 tracking-tight italic group-hover/scanner:text-brand-primary/40 transition-colors">Load Specimen</h4>
+                        <span className="text-[8px] font-black text-brand-dark/20 dark:text-white/10 uppercase tracking-[0.8em]">READY_FOR_{currentPersona}_INPUT</span>
                       </div>
                     </div>
                   )}
                   <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
                </div>
 
-               {/* Bio-Bridge Bottom Stats */}
-               <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-8 whitespace-nowrap">
+               {/* Bio-Scanner Footnotes */}
+               <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-8 whitespace-nowrap opacity-40">
                   <div className="flex items-center gap-3">
-                    <Microscope size={14} className="text-brand-primary opacity-40" />
-                    <span className="text-[8px] font-black text-brand-dark/30 dark:text-white/20 uppercase tracking-[0.4em]">Optical_Diagnostic_Active</span>
+                    <Microscope size={12} className="text-brand-primary" />
+                    <span className="text-[8px] font-black text-brand-dark dark:text-white uppercase tracking-[0.4em]">Optical_Scan_Active</span>
                   </div>
-                  <div className="w-1 h-1 rounded-full bg-brand-primary/20" />
+                  <div className="w-1 h-1 rounded-full bg-brand-primary" />
                   <div className="flex items-center gap-3">
-                    <Fingerprint size={14} className="text-brand-primary opacity-40" />
-                    <span className="text-[8px] font-black text-brand-dark/30 dark:text-white/20 uppercase tracking-[0.4em]">Biometric_Secured</span>
+                    <Binary size={12} className="text-brand-primary" />
+                    <span className="text-[8px] font-black text-brand-dark dark:text-white uppercase tracking-[0.4em]">AI_Sync_Stable</span>
                   </div>
                </div>
              </div>

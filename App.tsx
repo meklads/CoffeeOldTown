@@ -61,10 +61,11 @@ const App: React.FC = () => {
     localStorage.setItem('ot_lang', language);
   }, [language]);
 
+  // Persona Sync Logic: Clear analysis when persona changes to force recalibration
   useEffect(() => {
     localStorage.setItem('ot_persona', currentPersona);
     if (lastAnalysisResult) {
-       setLastAnalysisResult(null);
+       setLastAnalysisResult(null); 
     }
   }, [currentPersona]);
 
@@ -149,10 +150,9 @@ const App: React.FC = () => {
       case 'home':
         return (
           <div className="animate-fade-in space-y-0 overflow-hidden bg-brand-light dark:bg-brand-dark bg-grain">
-            {/* The Unified Command Center (Hybrid Hero) */}
+            {/* The Unified Command Center (Integrated Persona & Scanner) */}
             <Hero />
             <HorizontalDivider />
-            {/* The Synthesis stage remains second */}
             <SmartNutritionTool />
             <HorizontalDivider />
             <TrendingRecipes />

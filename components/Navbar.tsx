@@ -24,12 +24,12 @@ const Navbar: React.FC = () => {
       type: 'scroll' 
     },
     { 
-      label: isAr ? '02. التخليق' : '02. SYNTHESIS', 
+      label: isAr ? '02. التخليق العصبي' : '02. NEURAL SYNTHESIS', 
       id: SectionId.PHASE_03_SYNTHESIS, 
       type: 'scroll' 
     },
     { 
-      label: isAr ? '03. السجل' : '03. LEDGER', 
+      label: isAr ? '03. الأرشيف' : '03. ARCHIVE', 
       id: 'vaults', 
       type: 'view' 
     },
