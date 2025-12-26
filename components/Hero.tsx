@@ -1,9 +1,9 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Microscope, Fingerprint, AlertCircle, CheckCircle2, RefreshCw, X, Flame, Activity, Zap, ShieldAlert, Link as LinkIcon, RotateCcw, Database, Sparkles } from 'lucide-react';
+import { Plus, Microscope, Fingerprint, AlertCircle, CheckCircle2, RotateCcw, Database, Sparkles, Flame, Activity } from 'lucide-react';
 import { SectionId } from '../types.ts';
 import { useApp } from '../context/AppContext.tsx';
-import { GoogleGenAI } from "@google/genai";
+import { analyzeMealImage } from '../services/geminiService.ts';
 
 const Hero: React.FC = () => {
   const { incrementScans, setLastAnalysisResult, scrollTo, lastAnalysisResult } = useApp();
@@ -56,45 +56,33 @@ const Hero: React.FC = () => {
     setProgress(0);
     setErrorMessage('');
 
+    // Start progress animation
     progressIntervalRef.current = window.setInterval(() => {
       setProgress(prev => (prev >= 92 ? 92 : prev + Math.floor(Math.random() * 4) + 1));
-    }, 180);
+    }, 150);
 
     try {
-      const apiKey = process.env.API_KEY;
-      if (!apiKey) throw new Error("API_KEY_MISSING");
-
-      const ai = new GoogleGenAI({ apiKey });
-      const mimeType = image.match(/data:(.*?);/)?.[1] || 'image/jpeg';
-      const base64Data = image.split(',')[1];
-      
-      const response = await ai.models.generateContent({
-        model: 'gemini-flash-lite-latest',
-        contents: {
-          parts: [
-            { inlineData: { data: base64Data, mimeType: mimeType } },
-            { text: "Analyze this meal. Return JSON: {ingredients: [], totalCalories: number, healthScore: number, macros: {protein, carbs, fat}, summary: string, personalizedAdvice: string}." }
-          ]
-        },
-        config: { responseMimeType: "application/json", temperature: 0.1 }
+      // Call the secure backend API instead of direct Gemini client call
+      const result = await analyzeMealImage(image, {
+        chronicDiseases: "none",
+        dietProgram: "general",
+        activityLevel: "moderate"
       });
 
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       setProgress(100);
 
-      const result = JSON.parse(response.text || '{}');
-      
       if (result && result.totalCalories) {
         setLastAnalysisResult({ ...result, timestamp: new Date().toLocaleString(), imageUrl: image });
         incrementScans(result);
         setStatus('success');
       } else {
-        throw new Error("DATA_INCONSISTENCY_DETECTED");
+        throw new Error("Could not parse biological data from image.");
       }
     } catch (err: any) {
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       setStatus('error');
-      setErrorMessage(err.message || "Connection fault during extraction.");
+      setErrorMessage(err.message || "Diagnostic connection failure.");
     }
   };
 
@@ -144,7 +132,6 @@ const Hero: React.FC = () => {
                </div>
             </div>
 
-            {/* Re-introduced Archive Viewport with 100% Clarity */}
             <div className="relative group w-full max-w-lg aspect-[16/9] overflow-hidden rounded-[48px] bg-white border border-brand-dark/[0.08] shadow-2xl">
                <div className={`absolute inset-0 transition-all duration-[1500ms] ${isArchiveVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-105'}`}>
                   <img 
@@ -154,7 +141,6 @@ const Hero: React.FC = () => {
                   />
                </div>
                
-               {/* Minimal Gradient for text contrast only */}
                <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent opacity-80 pointer-events-none" />
                
                <div className="absolute bottom-8 left-8 flex items-center gap-4">
@@ -174,7 +160,6 @@ const Hero: React.FC = () => {
                   </div>
                </div>
                
-               {/* Subtle Lab scan lines overlay */}
                <div className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-[0.03]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px)', backgroundSize: '100% 8px' }} />
             </div>
 
@@ -196,12 +181,11 @@ const Hero: React.FC = () => {
                className="relative w-full max-w-[360px] md:max-w-[440px] transition-all duration-1000 z-20"
                style={{ transform: `translate(${mousePos.x}px, ${mousePos.y}px)` }}
              >
-               {/* Scanner Main Body */}
                <div className="relative aspect-[3/4.2] rounded-[80px] border-[1.5px] border-brand-dark/[0.08] bg-white overflow-hidden shadow-4xl z-20 group">
                   
                   {image ? (
                     <div className="absolute inset-0">
-                      <img src={image} className="w-full h-full object-cover grayscale-[0.3] transition-all duration-700" alt="Specimen" />
+                      <img src={image} className="w-full h-full object-cover transition-all duration-700" alt="Specimen" />
                       
                       {status === 'loading' && (
                         <div className="absolute inset-0 bg-brand-dark/90 backdrop-blur-md flex flex-col items-center justify-center z-50 animate-fade-in">
@@ -218,7 +202,7 @@ const Hero: React.FC = () => {
                                 <span className="text-4xl font-serif font-bold text-white">{progress}%</span>
                               </div>
                            </div>
-                           <span className="text-[9px] font-black text-brand-primary uppercase tracking-[0.6em] animate-pulse">EXTRACTING_CORE_DATA</span>
+                           <span className="text-[9px] font-black text-brand-primary uppercase tracking-[0.6em] animate-pulse text-center">ENCRYPTED_DATA_EXTRACTION</span>
                         </div>
                       )}
 
@@ -250,16 +234,6 @@ const Hero: React.FC = () => {
                                     <Activity size={12} /> <span className="text-[8px] font-black uppercase tracking-widest">Health</span>
                                  </div>
                                  <p className="text-2xl font-serif font-bold text-brand-primary">{lastAnalysisResult.healthScore}%</p>
-                              </div>
-                           </div>
-
-                           <div className="space-y-4 mb-10">
-                              <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest opacity-60">
-                                 <span>Protein</span>
-                                 <span>{lastAnalysisResult.macros.protein}g</span>
-                              </div>
-                              <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-                                 <div className="h-full bg-brand-primary w-2/3" />
                               </div>
                            </div>
 
@@ -320,7 +294,6 @@ const Hero: React.FC = () => {
                   <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
                </div>
 
-               {/* Design Elements for the "Machine" Look */}
                <div className="absolute -bottom-12 right-12 flex items-center gap-4 opacity-10">
                   <Fingerprint size={16} />
                   <p className="text-[8px] font-black uppercase tracking-[0.6em]">BIO_X_SCANNER_V6.1</p>

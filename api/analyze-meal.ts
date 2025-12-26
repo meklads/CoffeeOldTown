@@ -2,10 +2,10 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
 export const config = {
-  maxDuration: 15,
+  maxDuration: 30, // Increased timeout for deep analysis
   api: {
     bodyParser: {
-      sizeLimit: '4mb', // Increased from 500kb to support high-res phone photos
+      sizeLimit: '10mb', // Increased for high-quality food photography
     },
   },
 };
@@ -42,6 +42,7 @@ const mealAnalysisSchema = {
 };
 
 export default async function handler(req: any, res: any) {
+  // CORS configuration for Vercel
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -53,19 +54,24 @@ export default async function handler(req: any, res: any) {
   const apiKey = process.env.API_KEY;
 
   if (!apiKey) {
-    return res.status(500).json({ error: 'Core system key missing.' });
+    return res.status(500).json({ error: 'SYSTEM_FAULT: API key missing in environment nodes.' });
   }
 
   try {
     const ai = new GoogleGenAI({ apiKey });
     const base64Data = image.includes(',') ? image.split(',')[1] : image;
 
+    // Use Gemini 3 Flash for the best speed/quality ratio on Vercel
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: {
         parts: [
           { inlineData: { data: base64Data, mimeType: 'image/jpeg' } },
-          { text: `Analyze this meal image for a person with: ${JSON.stringify(profile)}. Return detailed nutritional JSON.` }
+          { text: `Perform a deep clinical analysis of this meal. 
+                  User Context: ${JSON.stringify(profile)}. 
+                  Identify all visible and hidden ingredients. 
+                  Calculate precise metabolic values. 
+                  Return JSON conforming to the defined schema.` }
         ]
       },
       config: { 
@@ -75,14 +81,14 @@ export default async function handler(req: any, res: any) {
       }
     });
 
-    const text = response.text;
-    if (!text) throw new Error("EMPTY_RESPONSE");
+    const resultText = response.text;
+    if (!resultText) throw new Error("EMPTY_DIAGNOSTIC_SIGNAL");
 
-    return res.status(200).json(JSON.parse(text.trim()));
+    return res.status(200).json(JSON.parse(resultText.trim()));
   } catch (error: any) {
-    console.error("Analysis Error:", error);
+    console.error("Metabolic Analysis Error:", error);
     return res.status(500).json({ 
-      error: 'Analysis Failed', 
+      error: 'Analysis Sequence Failed', 
       details: error.message 
     });
   }
