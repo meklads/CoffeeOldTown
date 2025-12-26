@@ -2,78 +2,97 @@
 import React from 'react';
 import { SectionId } from '../types.ts';
 import { useApp } from '../context/AppContext.tsx';
-import { ArrowUpRight, Sparkles, BookOpen, ChevronRight, Activity } from 'lucide-react';
+import { ArrowUpRight, Sparkles, BookOpen, Activity, Beaker, Zap } from 'lucide-react';
 
 const Categories: React.FC = () => {
   const { language, setView } = useApp();
 
+  const hubs = [
+    {
+      t: language === 'ar' ? 'أرشيف التغذية' : 'Metabolic Archive',
+      d: language === 'ar' ? 'بروتوكولات سريرية متقدمة.' : 'Advanced clinical nutrition protocols.',
+      icon: <Beaker size={24} />,
+      id: '01'
+    },
+    {
+      t: language === 'ar' ? 'تعزيز القدرات' : 'Cognitive Upgrade',
+      d: language === 'ar' ? 'تحسين الأداء الذهني والتركيز.' : 'Neuro-enhancement & focus systems.',
+      icon: <Zap size={24} />,
+      id: '02'
+    },
+    {
+      t: language === 'ar' ? 'علوم القهوة' : 'Roast Dynamics',
+      d: language === 'ar' ? 'كيمياء الاستخلاص والتحميص.' : 'The chemistry of extraction science.',
+      icon: <Activity size={24} />,
+      id: '03'
+    }
+  ];
+
   return (
-    <section id={SectionId.PHASE_05_UPGRADE} className="bg-brand-dark py-48 overflow-hidden relative border-t border-white/5">
-      {/* Cinematic Background */}
-      <div className="absolute inset-0 opacity-10 pointer-events-none grayscale" style={{ backgroundImage: `url('https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=1600&q=80')`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
-      <div className="absolute inset-0 bg-gradient-to-b from-brand-dark via-brand-dark/95 to-brand-dark" />
+    <section id={SectionId.PHASE_05_UPGRADE} className="bg-brand-light dark:bg-brand-dark py-24 overflow-hidden relative border-t border-brand-dark/[0.03]">
       
-      {/* Atmospheric Glows */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-brand-primary/5 via-transparent to-transparent opacity-50 pointer-events-none" />
+      <div className="absolute top-0 right-0 w-1/2 h-full bg-brand-primary/[0.015] -skew-x-12 pointer-events-none" />
 
       <div className="max-w-7xl mx-auto px-6 relative z-10">
-         <div className="grid lg:grid-cols-2 gap-24 items-center">
-            
-            <div className="space-y-12 text-center lg:text-left">
-               <div className="space-y-8">
-                  <div className="inline-flex items-center gap-4 px-6 py-2.5 bg-brand-primary/10 text-brand-primary rounded-full border border-brand-primary/20 backdrop-blur-xl mx-auto lg:mx-0">
-                    <Sparkles size={14} className="animate-pulse" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.6em]">PHASE 05: KNOWLEDGE HUB</span>
-                  </div>
-                  <h2 className="text-6xl md:text-[110px] font-serif font-bold text-white tracking-tighter leading-[0.8] transition-all">
-                    Learn & <br /> <span className="text-brand-primary italic font-normal">Upgrade.</span>
-                  </h2>
-                  <p className="text-white/40 text-xl font-medium max-w-xl italic leading-relaxed border-l-2 border-brand-primary/20 pl-10 mx-auto lg:mx-0">
-                    {language === 'ar' 
-                      ? 'تعمق في البروتوكولات العلمية التي تطور أدائك الأيضي والذهني من خلال أرشيفنا المركزي.' 
-                      : 'Deepen your bio-optimization knowledge and upgrade your skills via our central archive.'}
-                  </p>
+         
+         <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-10">
+            <div className="space-y-4">
+               <div className="inline-flex items-center gap-3 px-4 py-1.5 bg-brand-dark dark:bg-white/5 text-brand-primary rounded-full text-[9px] font-black uppercase tracking-[0.5em] shadow-2xl">
+                  <Sparkles size={12} className="animate-spin-slow" />
+                  <span>KNOWLEDGE HUB</span>
                </div>
-
-               <div className="flex flex-col sm:flex-row gap-6 justify-center lg:justify-start">
-                  <button 
-                    onClick={() => { setView('vaults'); window.scrollTo(0,0); }}
-                    className="group relative inline-flex items-center gap-6 bg-brand-primary text-white px-12 py-7 rounded-full font-black text-[12px] uppercase tracking-[0.5em] hover:bg-white hover:text-brand-dark transition-all duration-700 shadow-[0_30px_60px_-15px_rgba(175,139,69,0.3)]"
-                  >
-                    {language === 'ar' ? 'دخول الأرشيف' : 'ENTER THE ARCHIVE'}
-                    <ArrowUpRight size={20} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-                  </button>
-               </div>
+               <h2 className="text-6xl md:text-8xl font-serif font-bold text-brand-dark dark:text-white tracking-tighter leading-none">
+                 Learn & <br /> <span className="text-brand-primary italic font-normal">Upgrade.</span>
+               </h2>
             </div>
-
-            {/* Visual Feature Card */}
-            <div className="relative group/card cursor-pointer hidden lg:block" onClick={() => { setView('vaults'); window.scrollTo(0,0); }}>
-               <div className="absolute -inset-4 bg-brand-primary/20 blur-[100px] opacity-0 group-hover/card:opacity-100 transition-opacity duration-1000" />
-               <div className="relative bg-[#111111] border border-white/5 rounded-[80px] p-4 overflow-hidden shadow-3xl">
-                  <div className="relative aspect-[4/5] rounded-[60px] overflow-hidden">
-                     <img src="https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=1000&q=80" className="w-full h-full object-cover grayscale opacity-40 group-hover/card:grayscale-0 group-hover/card:opacity-100 group-hover/card:scale-110 transition-all duration-[2s]" alt="Article Preview" />
-                     <div className="absolute inset-0 bg-gradient-to-t from-brand-dark via-transparent to-transparent" />
-                     
-                     <div className="absolute top-10 left-10 flex items-center gap-3">
-                        <div className="bg-brand-primary/90 backdrop-blur-xl p-4 rounded-2xl shadow-2xl">
-                           <BookOpen size={24} className="text-white" />
-                        </div>
-                     </div>
-
-                     <div className="absolute bottom-12 left-12 right-12 space-y-4">
-                        <div className="flex items-center gap-3 text-brand-primary">
-                           <Activity size={14} />
-                           <span className="text-[9px] font-black uppercase tracking-[0.6em]">BIO-HACKING SYSTEM</span>
-                        </div>
-                        <h3 className="text-4xl font-serif font-bold text-white tracking-tighter leading-none">
-                          Advanced Metabolic <br /> <span className="text-brand-primary italic">Protocols.</span>
-                        </h3>
-                     </div>
-                  </div>
-               </div>
-            </div>
-
+            <p className="text-brand-dark/40 dark:text-white/30 text-lg md:text-xl font-medium max-w-sm italic leading-relaxed border-l-2 border-brand-primary/20 pl-8">
+              {language === 'ar' 
+                ? 'تعمق في البروتوكولات العلمية التي تطور أدائك الأيضي والذهني.' 
+                : 'Deepen your bio-optimization knowledge and upgrade your metabolic performance.'}
+            </p>
          </div>
+
+         <div className="grid lg:grid-cols-3 gap-8">
+            {hubs.map((hub) => (
+              <div 
+                key={hub.id}
+                onClick={() => { setView('vaults'); window.scrollTo(0,0); }}
+                className="group relative bg-white dark:bg-zinc-900 border border-brand-dark/[0.04] dark:border-white/[0.03] p-10 rounded-[50px] hover:border-brand-primary/40 hover:shadow-4xl transition-all duration-700 cursor-pointer overflow-hidden flex flex-col min-h-[380px]"
+              >
+                 <div className="absolute -top-10 -right-10 w-40 h-40 bg-brand-primary/[0.03] rounded-full blur-[40px] group-hover:bg-brand-primary/[0.08] transition-colors" />
+                 
+                 <div className="mb-10 flex justify-between items-start">
+                    <div className="w-16 h-16 bg-brand-light dark:bg-brand-dark rounded-2xl flex items-center justify-center text-brand-primary shadow-xl border border-brand-dark/[0.02] group-hover:scale-110 transition-transform duration-700">
+                       {hub.icon}
+                    </div>
+                    <span className="text-brand-dark/10 dark:text-white/5 font-serif text-5xl font-bold italic">{hub.id}</span>
+                 </div>
+
+                 <div className="space-y-4 flex-grow text-left">
+                    <h3 className="text-2xl font-serif font-bold text-brand-dark dark:text-white tracking-tight">{hub.t}</h3>
+                    <p className="text-brand-dark/40 dark:text-white/20 text-sm font-medium italic leading-relaxed">
+                       {hub.d}
+                    </p>
+                 </div>
+
+                 <div className="pt-8 flex items-center gap-3 text-brand-primary opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-700">
+                    <span className="text-[9px] font-black uppercase tracking-[0.4em]">Establish Connection</span>
+                    <ArrowUpRight size={16} />
+                 </div>
+              </div>
+            ))}
+         </div>
+
+         <div className="mt-16 flex justify-center">
+            <button 
+              onClick={() => { setView('vaults'); window.scrollTo(0,0); }}
+              className="group flex items-center gap-6 bg-brand-dark dark:bg-white/10 text-white px-10 py-6 rounded-full font-black text-[10px] uppercase tracking-[0.5em] hover:bg-brand-primary transition-all duration-700 shadow-4xl"
+            >
+               {language === 'ar' ? 'دخول الأرشيف المركزي' : 'ENTER THE CENTRAL VAULT'}
+               <BookOpen size={18} />
+            </button>
+         </div>
+
       </div>
     </section>
   );

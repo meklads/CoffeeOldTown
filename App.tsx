@@ -120,15 +120,25 @@ const App: React.FC = () => {
     if (el) window.scrollTo({ top: el.offsetTop - 80, behavior: 'smooth' });
   }, []);
 
+  const HorizontalDivider = () => (
+    <div className="neural-divider-h">
+       <div className="neural-node-h" />
+    </div>
+  );
+
   const renderContent = () => {
     switch(view) {
       case 'home':
         return (
           <div className="animate-fade-in space-y-0 overflow-hidden">
             <Hero />
+            <HorizontalDivider />
             <SmartNutritionTool />
+            <HorizontalDivider />
             <TrendingRecipes />
+            <HorizontalDivider />
             <MealScanner />
+            <HorizontalDivider />
             <KnowledgeHub />
           </div>
         );
