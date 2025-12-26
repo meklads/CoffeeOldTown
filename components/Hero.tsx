@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Microscope, Fingerprint, CheckCircle2, RotateCcw, Flame, Activity, AlertTriangle, RefreshCcw, Baby, HeartPulse, Zap, Settings2, ShieldCheck, Binary, Share2, BookOpen, ExternalLink, Droplets, Info, Sparkles, ChevronRight, Loader2 } from 'lucide-react';
+import { Plus, Microscope, Fingerprint, CheckCircle2, RotateCcw, Flame, Activity, AlertTriangle, RefreshCcw, Baby, HeartPulse, Zap, Settings2, ShieldCheck, Binary, Share2, BookOpen, ExternalLink, Droplets, Info, Sparkles, ChevronRight } from 'lucide-react';
 import { SectionId, BioPersona } from '../types.ts';
 import { useApp } from '../context/AppContext.tsx';
 import { analyzeMealImage } from '../services/geminiService.ts';
@@ -312,9 +312,9 @@ const Hero: React.FC = () => {
                         </div>
                       )}
 
-                      {!lastAnalysisResult && (
+                      {status !== 'loading' && !lastAnalysisResult && (
                         <div className="absolute inset-0 bg-brand-dark/80 backdrop-blur-[6px] flex flex-col items-center justify-center p-10 text-center animate-fade-in text-white z-40">
-                           <RefreshCcw size={48} className={`text-brand-primary mb-6 opacity-60 ${status === 'loading' ? 'animate-spin' : 'animate-spin-slow'}`} />
+                           <RefreshCcw size={48} className="text-brand-primary mb-6 animate-spin-slow opacity-60" />
                            <h4 className="text-3xl font-serif font-bold italic mb-4">
                               {isAr ? 'إعادة معايرة حيوية' : 'Bio-Recalibration'}
                            </h4>
@@ -325,19 +325,9 @@ const Hero: React.FC = () => {
                            </p>
                            <button 
                              onClick={handleAnalyze} 
-                             disabled={status === 'loading'}
-                             className="relative group bg-brand-primary text-brand-dark px-12 py-6 rounded-3xl font-black text-[10px] uppercase tracking-[0.5em] shadow-glow hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3 overflow-hidden disabled:opacity-80 disabled:cursor-not-allowed"
+                             className="bg-brand-primary text-brand-dark px-12 py-6 rounded-3xl font-black text-[10px] uppercase tracking-[0.5em] shadow-glow hover:scale-105 active:scale-95 transition-all"
                            >
-                              {status === 'loading' ? (
-                                <>
-                                  <Loader2 className="animate-spin" size={16} />
-                                  <span>{isAr ? 'جاري التحليل...' : 'ANALYZING...'}</span>
-                                  {/* Subtle inner progress bar within the button */}
-                                  <div className="absolute bottom-0 left-0 h-1 bg-brand-dark/20 transition-all duration-300" style={{ width: `${progress}%` }} />
-                                </>
-                              ) : (
-                                <span>{isAr ? 'تحديث التحليل' : 'SYNC DIAGNOSTICS'}</span>
-                              )}
+                              {isAr ? 'تحديث التحليل' : 'SYNC DIAGNOSTICS'}
                            </button>
                            <button onClick={resetScanner} className="mt-6 text-white/20 text-[9px] font-black uppercase tracking-widest hover:text-white transition-colors">
                               {isAr ? 'تجاهل العينة' : 'DISCARD SPECIMEN'}

@@ -62,7 +62,7 @@ const mealAnalysisSchema = {
     },
     scientificSource: {
       type: Type.STRING,
-      description: "A mention of a general scientific guideline."
+      description: "A mention of a general scientific guideline (e.g., 'Based on WHO guidelines' or 'AHA standards')."
     }
   },
   required: ["ingredients", "totalCalories", "healthScore", "macros", "summary", "personalizedAdvice", "warnings"]
@@ -76,15 +76,12 @@ export default async function handler(req: any, res: any) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  // Accessing the key inside the handler to ensure Vercel environment sync
+  const { image, profile } = req.body;
   const apiKey = process.env.API_KEY;
 
   if (!apiKey) {
-    console.error("CRITICAL: API_KEY is missing from environment variables.");
-    return res.status(500).json({ error: 'SYSTEM_FAULT: Diagnostic node authorization failed (Key Missing).' });
+    return res.status(500).json({ error: 'SYSTEM_FAULT: API key missing.' });
   }
-
-  const { image, profile } = req.body;
 
   try {
     const ai = new GoogleGenAI({ apiKey });
@@ -93,11 +90,11 @@ export default async function handler(req: any, res: any) {
 
     let personaContext = "";
     if (persona === 'PREGNANCY') {
-      personaContext = "User: PREGNANT. Focus: Folic Acid, Iron, Vitamin D. Warning markers: Unpasteurized dairy, high mercury, caffeine limits.";
+      personaContext = "The user is PREGNANT. Prioritize Folic Acid, Iron, Vitamin D. Explicitly warn about: Unpasteurized cheese, high mercury fish, raw sprouts, undercooked meat, high caffeine.";
     } else if (persona === 'DIABETIC') {
-      personaContext = "User: DIABETIC. Focus: Glycemic Load, fiber balance. Warning markers: Hidden sugars, refined carbs.";
+      personaContext = "The user has DIABETES. Focus on Glycemic Load, complex carbs, and fiber. Warn about hidden sugars and high-GI ingredients.";
     } else if (persona === 'ATHLETE') {
-      personaContext = "User: ATHLETE. Focus: Protein synthesis, electrolytes, glycogen replenishment.";
+      personaContext = "The user is an ATHLETE. Focus on Protein synthesis, electrolyte balance, and glycogen replenishment.";
     }
 
     const response = await ai.models.generateContent({
@@ -105,7 +102,9 @@ export default async function handler(req: any, res: any) {
       contents: {
         parts: [
           { inlineData: { data: base64Data, mimeType: 'image/jpeg' } },
-          { text: `Scientific metabolic analysis for ${persona} protocol. ${personaContext} Return precise JSON based on schema.` }
+          { text: `Deep clinical analysis. User Path: ${persona}. ${personaContext}
+                  Return JSON conforming to schema. Provide 'personalizedAdvice' as an array of short strings.
+                  Categorize each warning and assign a 'riskLevel' (low, medium, high).` }
         ]
       },
       config: { 
@@ -116,15 +115,9 @@ export default async function handler(req: any, res: any) {
     });
 
     const resultText = response.text;
-    if (!resultText) throw new Error("Empty response from AI engine.");
-    
     return res.status(200).json(JSON.parse(resultText.trim()));
   } catch (error: any) {
-    console.error("Gemini Analysis Failure:", error);
-    return res.status(500).json({ 
-      error: 'Analysis Node Offline', 
-      details: error.message,
-      suggestion: "Check API Key billing or Vercel Environment Variables."
-    });
+    console.error("Analysis Error:", error);
+    return res.status(500).json({ error: 'Analysis Failed', details: error.message });
   }
 }
