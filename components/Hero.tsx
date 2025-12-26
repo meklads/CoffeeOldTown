@@ -1,12 +1,12 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Microscope, Fingerprint, CheckCircle2, RotateCcw, Database, Sparkles, Flame, Activity } from 'lucide-react';
+import { Plus, Microscope, Fingerprint, CheckCircle2, RotateCcw, Database, Sparkles, Flame, Activity, AlertTriangle } from 'lucide-react';
 import { SectionId } from '../types.ts';
 import { useApp } from '../context/AppContext.tsx';
 import { analyzeMealImage } from '../services/geminiService.ts';
 
 const Hero: React.FC = () => {
-  const { incrementScans, setLastAnalysisResult, scrollTo, lastAnalysisResult } = useApp();
+  const { incrementScans, setLastAnalysisResult, scrollTo, lastAnalysisResult, currentPersona } = useApp();
   const [image, setImage] = useState<string | null>(null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'error' | 'success'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
@@ -18,7 +18,6 @@ const Hero: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const progressIntervalRef = useRef<number | null>(null);
 
-  // Verified High-Quality Links
   const archiveSamples = [
     "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=1200&q=80",
     "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=1200&q=80",
@@ -65,7 +64,8 @@ const Hero: React.FC = () => {
       const result = await analyzeMealImage(image, {
         chronicDiseases: "none",
         dietProgram: "general",
-        activityLevel: "moderate"
+        activityLevel: "moderate",
+        persona: currentPersona
       });
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       setProgress(100);
@@ -73,7 +73,7 @@ const Hero: React.FC = () => {
         setLastAnalysisResult({ ...result, timestamp: new Date().toLocaleString(), imageUrl: image });
         incrementScans(result);
         setStatus('success');
-      } else { throw new Error("Data extraction timed out."); }
+      } else { throw new Error("Extraction fault."); }
     } catch (err: any) {
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       setStatus('error');
@@ -126,38 +126,62 @@ const Hero: React.FC = () => {
                               </svg>
                               <div className="absolute inset-0 flex items-center justify-center text-3xl font-serif font-bold">{progress}%</div>
                            </div>
-                           <span className="text-[9px] font-black text-brand-primary uppercase tracking-[0.6em] animate-pulse">EXTRACTING_MOLECULAR_DATA</span>
+                           <span className="text-[9px] font-black text-brand-primary uppercase tracking-[0.6em] animate-pulse">EXTRACTING_DATA_PATH_{currentPersona}</span>
                         </div>
                       )}
 
                       {status === 'success' && lastAnalysisResult && (
-                        <div className="absolute inset-0 bg-brand-dark/95 backdrop-blur-xl flex flex-col p-10 z-50 animate-fade-in text-white">
-                           <div className="flex justify-between items-start mb-8">
-                              <div className="bg-brand-primary/20 p-2.5 rounded-2xl border border-brand-primary/30 text-brand-primary"><CheckCircle2 size={20} /></div>
+                        <div className="absolute inset-0 bg-brand-dark/95 backdrop-blur-xl flex flex-col p-8 z-50 animate-fade-in text-white overflow-y-auto custom-scrollbar">
+                           <div className="flex justify-between items-start mb-6 shrink-0">
+                              <div className="bg-brand-primary/20 p-2.5 rounded-2xl border border-brand-primary/30 text-brand-primary flex items-center gap-2">
+                                <CheckCircle2 size={16} />
+                                <span className="text-[8px] font-black uppercase tracking-widest">{currentPersona} OK</span>
+                              </div>
                               <button onClick={resetScanner} className="p-2 text-white/20 hover:text-white transition-colors"><RotateCcw size={18} /></button>
                            </div>
-                           <div className="space-y-2 mb-8">
-                              <span className="text-[7px] font-black text-brand-primary uppercase tracking-[0.4em]">Report_Summary</span>
-                              <h3 className="text-2xl font-serif font-bold leading-tight">{lastAnalysisResult.summary}</h3>
-                           </div>
-                           <div className="grid grid-cols-2 gap-4 mb-10">
-                              <div className="bg-white/5 p-5 rounded-3xl border border-white/5 space-y-2">
-                                 <div className="flex items-center gap-2 opacity-30"><Flame size={12} /><span className="text-[7px] font-black uppercase">Energy</span></div>
-                                 <p className="text-2xl font-serif font-bold">{lastAnalysisResult.totalCalories}<span className="text-[10px] ml-1 opacity-40">kcal</span></p>
+
+                           <div className="space-y-6">
+                              <div className="space-y-1">
+                                 <span className="text-[7px] font-black text-brand-primary uppercase tracking-[0.4em]">Specimen_ID_#2045</span>
+                                 <h3 className="text-xl font-serif font-bold leading-tight">{lastAnalysisResult.summary}</h3>
                               </div>
-                              <div className="bg-white/5 p-5 rounded-3xl border border-white/5 space-y-2">
-                                 <div className="flex items-center gap-2 opacity-30"><Activity size={12} /><span className="text-[7px] font-black uppercase">Health</span></div>
-                                 <p className="text-2xl font-serif font-bold text-brand-primary">{lastAnalysisResult.healthScore}%</p>
+
+                              {lastAnalysisResult.warnings && lastAnalysisResult.warnings.length > 0 && (
+                                <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-2xl space-y-2">
+                                   <div className="flex items-center gap-2 text-red-400">
+                                      <AlertTriangle size={14} />
+                                      <span className="text-[8px] font-black uppercase tracking-widest">Bio-Hazard / Risk</span>
+                                   </div>
+                                   {lastAnalysisResult.warnings.map((w, i) => (
+                                     <p key={i} className="text-[10px] text-white/80 font-medium italic">• {w}</p>
+                                   ))}
+                                </div>
+                              )}
+
+                              <div className="grid grid-cols-2 gap-3">
+                                 <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                                    <div className="flex items-center gap-2 opacity-30 mb-1"><Flame size={10} /><span className="text-[7px] font-black uppercase">Energy</span></div>
+                                    <p className="text-xl font-serif font-bold">{lastAnalysisResult.totalCalories}<span className="text-[9px] ml-1 opacity-40">kcal</span></p>
+                                 </div>
+                                 <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                                    <div className="flex items-center gap-2 opacity-30 mb-1"><Activity size={10} /><span className="text-[7px] font-black uppercase">Score</span></div>
+                                    <p className="text-xl font-serif font-bold text-brand-primary">{lastAnalysisResult.healthScore}%</p>
+                                 </div>
+                              </div>
+
+                              <div className="bg-brand-primary/10 border-l-2 border-brand-primary p-4 rounded-r-2xl">
+                                 <p className="text-[11px] text-white/70 italic leading-relaxed">"{lastAnalysisResult.personalizedAdvice}"</p>
                               </div>
                            </div>
-                           <button onClick={() => scrollTo(SectionId.PHASE_03_SYNTHESIS)} className="w-full mt-auto py-6 bg-brand-primary text-brand-dark rounded-3xl text-[10px] font-black uppercase tracking-[0.4em] shadow-glow">SYNC PROTOCOL HUB</button>
+
+                           <button onClick={() => scrollTo(SectionId.PHASE_03_SYNTHESIS)} className="w-full mt-8 py-5 bg-brand-primary text-brand-dark rounded-2xl text-[9px] font-black uppercase tracking-[0.4em] shadow-glow shrink-0">View Personalized Blueprint</button>
                         </div>
                       )}
 
                       {status === 'idle' && (
                         <div className="absolute inset-0 bg-brand-dark/40 lg:opacity-0 lg:group-hover:opacity-100 transition-all flex flex-col items-center justify-center gap-4 z-40 backdrop-blur-[2px]">
                            <button onClick={handleAnalyze} className="bg-brand-primary text-brand-dark p-8 rounded-full shadow-glow hover:scale-110 active:scale-95 transition-all"><Microscope size={36} /></button>
-                           <span className="text-[9px] font-black text-white uppercase tracking-[0.6em]">Run_Analysis_Cycle</span>
+                           <span className="text-[9px] font-black text-white uppercase tracking-[0.6em]">Run_Diagnostic</span>
                         </div>
                       )}
                     </div>
@@ -171,14 +195,14 @@ const Hero: React.FC = () => {
                       </div>
                       <div className="text-center space-y-3">
                         <h4 className="text-2xl font-serif font-bold text-brand-dark/40 dark:text-white/20 tracking-tight italic">Insert Sample</h4>
-                        <span className="text-[7px] font-black text-brand-dark/20 dark:text-white/10 uppercase tracking-[0.8em]">AWAITING_BIO_INPUT</span>
+                        <span className="text-[7px] font-black text-brand-dark/20 dark:text-white/10 uppercase tracking-[0.8em]">PATHWAY_{currentPersona}_READY</span>
                       </div>
                     </div>
                   )}
                   <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
                </div>
                <div className="absolute -bottom-10 right-10 flex items-center gap-3 opacity-10">
-                  <Fingerprint size={14} /><p className="text-[7px] font-black uppercase tracking-[0.6em]">BIO_X_SCANNER_6.1</p>
+                  <Fingerprint size={14} /><p className="text-[7px] font-black uppercase tracking-[0.6em]">X_DIAGNOSTIC_CORE</p>
                </div>
              </div>
           </div>
@@ -187,14 +211,14 @@ const Hero: React.FC = () => {
             <div className="space-y-6">
                <div className="inline-flex items-center gap-3 px-4 py-1.5 bg-white dark:bg-white/5 border border-brand-dark/[0.05] dark:border-white/5 rounded-full shadow-sm mx-auto lg:mx-0">
                   <div className="w-1.5 h-1.5 rounded-full bg-brand-primary animate-pulse" />
-                  <span className="text-[7px] font-black uppercase tracking-[0.4em] text-brand-dark/40 dark:text-white/40 italic">BIO_DIAGNOSTIC_READY</span>
+                  <span className="text-[7px] font-black uppercase tracking-[0.4em] text-brand-dark/40 dark:text-white/40 italic">PATH: {currentPersona}</span>
                </div>
                <div className="space-y-6">
                   <h1 className="text-5xl md:text-8xl lg:text-[105px] font-serif font-bold text-brand-dark dark:text-white leading-[0.8] tracking-tighter">
-                    Metabolic <br /><span className="text-brand-primary italic font-normal">Diagnostic.</span>
+                    Precision <br /><span className="text-brand-primary italic font-normal">Nutrition.</span>
                   </h1>
                   <p className="text-brand-dark/40 dark:text-white/30 text-[10px] md:text-[11px] font-bold tracking-[0.2em] max-w-sm mx-auto lg:mx-0 uppercase leading-relaxed">
-                    PRECISION INSTRUMENTATION FOR REAL-TIME BIO-MOLECULAR DATA EXTRACTION.
+                    SPECIALIZED BIO-ANALYSIS FOR MATERNAL, DIABETIC, AND ATHLETIC PERFORMANCE TRACKING.
                   </p>
                </div>
             </div>
@@ -210,14 +234,10 @@ const Hero: React.FC = () => {
                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-70" />
                <div className="absolute bottom-8 left-8 flex items-center gap-4">
                   <div className="p-3 bg-brand-dark/95 rounded-2xl text-brand-primary shadow-2xl border border-white/5"><Database size={16} /></div>
-                  <div className="flex flex-col">
-                     <span className="text-[8px] font-black text-white/50 uppercase tracking-[0.5em]">ARCHIVE_SYSTEM</span>
-                     <span className="text-sm font-serif font-bold text-white italic tracking-tight">Specimen #{archiveIdx + 7045}</span>
+                  <div className="flex flex-col text-left">
+                     <span className="text-[8px] font-black text-white/50 uppercase tracking-[0.5em]">ACTIVE_PERSONA</span>
+                     <span className="text-sm font-serif font-bold text-white italic tracking-tight">{currentPersona} MODE</span>
                   </div>
-               </div>
-               <div className="absolute top-8 right-8 px-4 py-2 bg-brand-primary/95 backdrop-blur-md rounded-full shadow-xl border border-white/10 flex items-center gap-2 transition-all">
-                  <Sparkles size={10} className="text-brand-dark" />
-                  <span className="text-[8px] font-black text-brand-dark uppercase tracking-widest">HIGH_RES_MODE</span>
                </div>
             </div>
           </div>

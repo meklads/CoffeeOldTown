@@ -14,15 +14,19 @@ export interface Recipe {
   affiliateLinks?: { name: string; url: string }[];
 }
 
+export type BioPersona = 'GENERAL' | 'ATHLETE' | 'PREGNANCY' | 'DIABETIC';
+
 export interface MealPlanRequest {
-  goal: 'weight_loss' | 'build_muscle' | 'diabetes_care' | 'general_health' | string;
-  diet: 'balanced' | 'vegan' | 'keto' | 'paleo';
+  goal: string;
+  diet: string;
+  persona?: BioPersona;
 }
 
 export interface UserHealthProfile {
   chronicDiseases: string;
   dietProgram: string;
   activityLevel: 'low' | 'moderate' | 'high';
+  persona?: BioPersona;
 }
 
 export interface Meal {
@@ -63,6 +67,7 @@ export interface MealAnalysisResult {
   personalizedAdvice: string;
   timestamp?: string;
   imageUrl?: string;
+  warnings?: string[]; // New: Specialized warnings for personas
 }
 
 export enum SectionId {
@@ -71,6 +76,7 @@ export enum SectionId {
   PHASE_03_SYNTHESIS = 'synthesis', 
   PHASE_04_ARCHIVE = 'archive',     
   PHASE_05_UPGRADE = 'pricing',
+  BIO_NEXUS = 'nexus',
   RECIPE_VAULT = 'systems',
   COFFEE_STORE = 'coffee',
   ABOUT = 'about'

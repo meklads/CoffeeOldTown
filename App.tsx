@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Navbar from './components/Navbar.tsx';
 import Hero from './components/Hero.tsx';
 import SmartNutritionTool from './components/SmartNutritionTool.tsx';
+import BioNexus from './components/BioNexus.tsx';
 import MealScanner from './components/MealScanner.tsx';
 import VaultsPage from './components/VaultsPage.tsx';
 import RecipeDetail from './components/RecipeDetail.tsx';
@@ -15,7 +16,7 @@ import FAQ from './components/FAQ.tsx';
 import ContactUs from './components/ContactUs.tsx';
 import { AppContext, UserTier } from './context/AppContext.tsx';
 import { Language } from './translations.ts';
-import { MealAnalysisResult, SectionId, ViewType, Recipe, FeedbackEntry, FeedbackSignal, Theme } from './types.ts';
+import { MealAnalysisResult, SectionId, ViewType, Recipe, FeedbackEntry, FeedbackSignal, Theme, BioPersona } from './types.ts';
 import { syncMealToCloud, fetchCloudHistory, testConnection } from './services/supabaseClient.ts';
 
 const App: React.FC = () => {
@@ -28,6 +29,10 @@ const App: React.FC = () => {
   const [view, setView] = useState<ViewType>('home');
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [selectedGoal, setSelectedGoal] = useState<string | null>(null);
+  const [currentPersona, setCurrentPersona] = useState<BioPersona>(() => {
+    const saved = localStorage.getItem('ot_persona') as BioPersona;
+    return saved || 'GENERAL';
+  });
   const [lastAnalysisResult, setLastAnalysisResult] = useState<MealAnalysisResult | null>(null);
   const [isCloudConnected, setIsCloudConnected] = useState(false);
   const [isApiKeyLinked, setIsApiKeyLinked] = useState(false);
@@ -56,6 +61,10 @@ const App: React.FC = () => {
     document.documentElement.lang = language;
     localStorage.setItem('ot_lang', language);
   }, [language]);
+
+  useEffect(() => {
+    localStorage.setItem('ot_persona', currentPersona);
+  }, [currentPersona]);
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -140,6 +149,8 @@ const App: React.FC = () => {
           <div className="animate-fade-in space-y-0 overflow-hidden bg-brand-light dark:bg-brand-dark bg-grain">
             <Hero />
             <HorizontalDivider />
+            <BioNexus />
+            <HorizontalDivider />
             <SmartNutritionTool />
             <HorizontalDivider />
             <TrendingRecipes />
@@ -164,22 +175,17 @@ const App: React.FC = () => {
       language, setLanguage, tier, setTier, theme, toggleTheme, scansCount: history.length, incrementScans, 
       history, clearHistory, lastAnalysisResult, setLastAnalysisResult,
       view, setView, scrollTo, selectedRecipe, setSelectedRecipe,
-      selectedGoal, setSelectedGoal, feedbackHistory, submitFeedback,
+      selectedGoal, setSelectedGoal, currentPersona, setCurrentPersona,
+      feedbackHistory, submitFeedback,
       isCloudConnected, setIsCloudConnected,
       isApiKeyLinked, setIsApiKeyLinked
     }}>
       <div className="min-h-screen flex flex-col bg-brand-light dark:bg-brand-dark text-brand-dark dark:text-brand-light font-sans selection:bg-brand-primary/30 transition-colors duration-500 scroll-smooth">
         
-        {/* Coffee Nebula Background Layers (Dark Mode only for better visibility) */}
         {theme === 'dark' && (
           <div className="coffee-nebula-container">
-            {/* Top Right Warm Glow */}
             <div className="nebula-glow w-[600px] h-[600px] bg-brand-primary/20 top-[-10%] right-[-10%] animate-float-slow" />
-            
-            {/* Center Left Deep Coffee Glow */}
             <div className="nebula-glow w-[500px] h-[500px] bg-[#3E2723]/30 top-[40%] left-[-5%] animate-float-reverse" />
-            
-            {/* Bottom Right Golden Amber Glow */}
             <div className="nebula-glow w-[400px] h-[400px] bg-brand-gold/10 bottom-[5%] right-[5%] animate-float-slow" style={{ animationDelay: '-5s' }} />
           </div>
         )}
