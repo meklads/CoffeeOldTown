@@ -132,7 +132,7 @@ const App: React.FC = () => {
     switch(view) {
       case 'home':
         return (
-          <div className="animate-fade-in space-y-0 overflow-hidden bg-brand-light dark:bg-brand-dark">
+          <div className="animate-fade-in space-y-0 overflow-hidden bg-brand-light dark:bg-brand-dark bg-grain">
             <Hero />
             <HorizontalDivider />
             <SmartNutritionTool />

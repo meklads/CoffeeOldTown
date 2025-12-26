@@ -21,11 +21,13 @@
             },
             colors: {
               brand: {
-                dark: '#0A0A0A',
+                // New Refined Dark Palette
+                dark: '#0F0E0C', // Deep Espresso (Tinted Black)
                 primary: '#C2A36B',
                 light: '#FDFDFD',
                 gold: '#C2A36B',
-                cream: '#F7F5F2'
+                cream: '#F7F5F2',
+                surface: '#1A1814' // Elevated dark surfaces
               }
             },
             animation: {
@@ -50,10 +52,13 @@
     <style>
       ::-webkit-scrollbar { width: 5px; }
       ::-webkit-scrollbar-track { background: #FDFDFD; }
+      .dark ::-webkit-scrollbar-track { background: #0F0E0C; }
       ::-webkit-scrollbar-thumb { background: #C2A36B; border-radius: 10px; }
+      
       html { scroll-behavior: smooth; }
-      body { background-color: #FDFDFD; color: #0A0A0A; overflow-x: hidden; }
-      .dark body { background-color: #0A0A0A; color: #FDFDFD; }
+      body { background-color: #FDFDFD; color: #0A0A0A; overflow-x: hidden; transition: background-color 0.5s ease; }
+      .dark body { background-color: #0F0E0C; color: #FDFDFD; }
+      
       [dir="rtl"] { font-family: "IBM Plex Sans Arabic", sans-serif; }
       
       /* Professional Small Divider */
@@ -61,13 +66,13 @@
         width: 100%;
         display: flex;
         justify-content: center;
-        padding: 40px 0;
+        padding: 60px 0;
       }
       .neural-divider-h {
         height: 1px;
         width: 140px;
         position: relative;
-        background: linear-gradient(to right, transparent, rgba(194,163,107,0.4), transparent);
+        background: linear-gradient(to right, transparent, rgba(194,163,107,0.3), transparent);
       }
       .neural-node-h {
         width: 4px;
@@ -84,6 +89,20 @@
       @keyframes pulseNode {
         0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.3; }
         50% { transform: translate(-50%, -50%) scale(1.8); opacity: 1; }
+      }
+
+      /* Animated Grain Effect for Dark Mode Luxury */
+      .dark .bg-grain {
+        position: relative;
+      }
+      .dark .bg-grain::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-image: url("https://grainy-gradients.vercel.app/noise.svg");
+        opacity: 0.03;
+        pointer-events: none;
+        z-index: 0;
       }
     </style>
   <script type="importmap">

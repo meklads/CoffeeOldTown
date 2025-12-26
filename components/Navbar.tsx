@@ -17,11 +17,12 @@ const Navbar: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Simplified and corrected mapping for smooth navigation
   const navLinks = [
     { label: t.phase01, id: SectionId.PHASE_01_SCAN, type: 'scroll' },
-    { label: t.phase02, id: SectionId.PHASE_02_PROTOCOLS, type: 'scroll' },
-    { label: t.phase03, id: SectionId.PHASE_03_SYNTHESIS, type: 'scroll' },
-    { label: t.phase04, id: 'vaults', type: 'view' },
+    { label: language === 'ar' ? '02. التخليق' : '02. SYNTHESIS', id: SectionId.PHASE_03_SYNTHESIS, type: 'scroll' },
+    { label: language === 'ar' ? '03. المعرفة' : '03. JOURNAL', id: SectionId.PHASE_05_UPGRADE, type: 'scroll' },
+    { label: language === 'ar' ? '04. الأرشيف' : '04. ARCHIVE', id: 'vaults', type: 'view' },
   ];
 
   const handleLinkClick = (link: { label: string, id: string, type: string }) => {
@@ -31,7 +32,8 @@ const Navbar: React.FC = () => {
     } else {
       if (view !== 'home') {
         setView('home');
-        setTimeout(() => scrollTo(link.id), 150);
+        // Wait for section to render if coming from another view
+        setTimeout(() => scrollTo(link.id), 250);
       } else {
         scrollTo(link.id);
       }
@@ -52,10 +54,6 @@ const Navbar: React.FC = () => {
           </div>
           <div className="flex items-center gap-2 mt-0.5">
             <span className={`text-[9px] font-black uppercase tracking-[0.4em] leading-none transition-colors ${isScrolled || view !== 'home' ? 'text-white/40' : 'text-brand-dark/30 dark:text-white/20'}`}>Old Town Lab</span>
-            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-brand-primary/20 text-brand-primary/60">
-              <Activity size={8} />
-              <span className="text-[7px] font-bold uppercase tracking-widest">ENCRYPTED BRIDGE ACTIVE</span>
-            </div>
           </div>
         </div>
 
@@ -64,15 +62,14 @@ const Navbar: React.FC = () => {
             <button
               key={idx}
               onClick={() => handleLinkClick(link)}
-              className={`text-[9px] font-black uppercase tracking-[0.3em] transition-all flex items-center gap-2 ${isScrolled || view !== 'home' ? 'text-white/60 hover:text-brand-primary' : 'text-brand-dark/60 hover:text-brand-dark dark:text-white/40 dark:hover:text-white'} ${link.id === 'vaults' && view === 'vaults' ? 'text-brand-primary' : ''}`}
+              className={`text-[9px] font-black uppercase tracking-[0.3em] transition-all flex items-center gap-2 ${isScrolled || view !== 'home' ? 'text-white/60 hover:text-brand-primary' : 'text-brand-dark/60 hover:text-brand-dark dark:text-white/40 dark:hover:text-white'}`}
             >
-              {link.id === 'vaults' && <BookOpen size={10} />}
               {link.label}
             </button>
           ))}
           
           <button onClick={() => { setView('coffee'); window.scrollTo(0,0); }} className={`text-[9px] font-black uppercase tracking-[0.3em] flex items-center gap-2 ${isScrolled || view !== 'home' ? 'text-white/60 hover:text-brand-primary' : 'text-brand-dark/60 hover:text-brand-dark dark:text-white/40 dark:hover:text-white'}`}>
-            {t.store} <ShoppingCart size={12} />
+            {translations[language].nav.store} <ShoppingCart size={12} />
           </button>
 
           <button 
@@ -91,7 +88,7 @@ const Navbar: React.FC = () => {
       {isMobileOpen && (
         <div className="xl:hidden fixed inset-0 top-[64px] bg-brand-dark z-50 p-10 flex flex-col gap-6 animate-fade-in">
            {navLinks.map((link, idx) => (
-            <button key={idx} onClick={() => handleLinkClick(link)} className={`text-left text-white text-3xl font-serif font-bold tracking-tight border-b border-white/10 pb-4 ${link.id === 'vaults' && view === 'vaults' ? 'text-brand-primary' : ''}`}>
+            <button key={idx} onClick={() => handleLinkClick(link)} className="text-left text-white text-3xl font-serif font-bold tracking-tight border-b border-white/10 pb-4">
               {link.label}
             </button>
           ))}

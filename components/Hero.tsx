@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Microscope, Fingerprint, AlertCircle, CheckCircle2, RotateCcw, Database, Sparkles, Flame, Activity } from 'lucide-react';
+import { Plus, Microscope, Fingerprint, CheckCircle2, RotateCcw, Database, Sparkles, Flame, Activity } from 'lucide-react';
 import { SectionId } from '../types.ts';
 import { useApp } from '../context/AppContext.tsx';
 import { analyzeMealImage } from '../services/geminiService.ts';
@@ -18,12 +18,12 @@ const Hero: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const progressIntervalRef = useRef<number | null>(null);
 
-  // Final Production Image Pool (Direct & Stable)
+  // Verified High-Quality Links
   const archiveSamples = [
-    "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=1000&q=80",
-    "https://images.unsplash.com/photo-1493770348161-369560ae357d?w=1000&q=80",
-    "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1000&q=80",
-    "https://images.unsplash.com/photo-1567620905732-2d1ec7bb7445?w=1000&q=80"
+    "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=1200&q=80",
+    "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=1200&q=80",
+    "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=1200&q=80",
+    "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=1200&q=80"
   ];
 
   useEffect(() => {
@@ -98,25 +98,24 @@ const Hero: React.FC = () => {
   };
 
   return (
-    <section id={SectionId.PHASE_01_SCAN} className="relative min-h-screen lg:h-screen bg-brand-light flex items-center overflow-hidden pt-24 pb-12 lg:py-0 transition-colors duration-1000">
-      <div className="absolute inset-0 pointer-events-none opacity-[0.012] z-0" style={{ backgroundImage: 'radial-gradient(#0A0A0A 0.5px, transparent 0.5px)', backgroundSize: '30px 30px' }} />
+    <section id={SectionId.PHASE_01_SCAN} className="relative min-h-screen lg:h-screen bg-brand-light dark:bg-brand-dark flex items-center overflow-hidden pt-24 pb-12 lg:py-0 transition-colors duration-1000">
+      <div className="absolute inset-0 pointer-events-none opacity-[0.012] z-0" style={{ backgroundImage: 'radial-gradient(#C2A36B 0.5px, transparent 0.5px)', backgroundSize: '30px 30px' }} />
 
       <div className="max-w-7xl w-full mx-auto px-6 z-10">
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-24 items-center">
           
-          {/* Right Column (Scanner Unit) - Order 1 on Mobile */}
           <div className="flex justify-center lg:justify-end items-center order-1 lg:order-2">
              <div 
                className="relative w-full max-w-full md:max-w-[430px] transition-transform duration-1000"
                style={{ transform: window.innerWidth > 1024 ? `translate(${mousePos.x}px, ${mousePos.y}px)` : 'none' }}
              >
-               <div className="relative aspect-[3/4] rounded-[50px] md:rounded-[70px] border border-brand-dark/[0.08] bg-white overflow-hidden shadow-4xl z-20 group">
+               <div className="relative aspect-[3/4] rounded-[50px] md:rounded-[70px] border border-brand-dark/[0.08] dark:border-white/5 bg-white dark:bg-zinc-900/40 overflow-hidden shadow-4xl z-20 group">
                   {image ? (
                     <div className="absolute inset-0">
                       <img src={image} className="w-full h-full object-cover" alt="Specimen" />
                       
                       {status === 'loading' && (
-                        <div className="absolute inset-0 bg-brand-dark/90 backdrop-blur-md flex flex-col items-center justify-center z-50 animate-fade-in">
+                        <div className="absolute inset-0 bg-brand-dark/90 backdrop-blur-md flex flex-col items-center justify-center z-50 animate-fade-in text-white">
                            <div className="relative w-28 h-28 mb-8">
                               <svg className="w-full h-full -rotate-90">
                                 <circle cx="50%" cy="50%" r="44%" stroke="currentColor" strokeWidth="2" fill="transparent" className="text-white/5" />
@@ -125,7 +124,7 @@ const Hero: React.FC = () => {
                                   className="text-brand-primary transition-all duration-300" 
                                 />
                               </svg>
-                              <div className="absolute inset-0 flex items-center justify-center text-3xl font-serif font-bold text-white">{progress}%</div>
+                              <div className="absolute inset-0 flex items-center justify-center text-3xl font-serif font-bold">{progress}%</div>
                            </div>
                            <span className="text-[9px] font-black text-brand-primary uppercase tracking-[0.6em] animate-pulse">EXTRACTING_MOLECULAR_DATA</span>
                         </div>
@@ -166,13 +165,13 @@ const Hero: React.FC = () => {
                     <div onClick={() => fileInputRef.current?.click()} className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer p-8">
                       <div className="relative mb-8">
                          <div className="absolute -inset-12 border border-brand-primary/5 rounded-full animate-pulse-slow" />
-                         <div className="w-20 h-20 rounded-[35px] bg-brand-light flex items-center justify-center border border-brand-dark/[0.04] shadow-sm">
+                         <div className="w-20 h-20 rounded-[35px] bg-brand-light dark:bg-brand-dark flex items-center justify-center border border-brand-dark/[0.04] dark:border-white/5 shadow-sm">
                           <Plus size={40} className="text-brand-primary" strokeWidth={1.5} />
                          </div>
                       </div>
                       <div className="text-center space-y-3">
-                        <h4 className="text-2xl font-serif font-bold text-brand-dark/40 tracking-tight italic">Insert Sample</h4>
-                        <span className="text-[7px] font-black text-brand-dark/20 uppercase tracking-[0.8em]">AWAITING_BIO_INPUT</span>
+                        <h4 className="text-2xl font-serif font-bold text-brand-dark/40 dark:text-white/20 tracking-tight italic">Insert Sample</h4>
+                        <span className="text-[7px] font-black text-brand-dark/20 dark:text-white/10 uppercase tracking-[0.8em]">AWAITING_BIO_INPUT</span>
                       </div>
                     </div>
                   )}
@@ -184,26 +183,23 @@ const Hero: React.FC = () => {
              </div>
           </div>
 
-          {/* Left Column (Cohesive Content Mass) - Order 2 on Mobile */}
           <div className="flex flex-col space-y-12 animate-fade-in order-2 lg:order-1 text-center lg:text-left px-4 lg:px-0">
-            {/* Title Block */}
             <div className="space-y-6">
-               <div className="inline-flex items-center gap-3 px-4 py-1.5 bg-white border border-brand-dark/[0.05] rounded-full shadow-sm mx-auto lg:mx-0">
+               <div className="inline-flex items-center gap-3 px-4 py-1.5 bg-white dark:bg-white/5 border border-brand-dark/[0.05] dark:border-white/5 rounded-full shadow-sm mx-auto lg:mx-0">
                   <div className="w-1.5 h-1.5 rounded-full bg-brand-primary animate-pulse" />
-                  <span className="text-[7px] font-black uppercase tracking-[0.4em] text-brand-dark/40 italic">BIO_DIAGNOSTIC_READY</span>
+                  <span className="text-[7px] font-black uppercase tracking-[0.4em] text-brand-dark/40 dark:text-white/40 italic">BIO_DIAGNOSTIC_READY</span>
                </div>
                <div className="space-y-6">
-                  <h1 className="text-5xl md:text-8xl lg:text-[105px] font-serif font-bold text-brand-dark leading-[0.8] tracking-tighter">
+                  <h1 className="text-5xl md:text-8xl lg:text-[105px] font-serif font-bold text-brand-dark dark:text-white leading-[0.8] tracking-tighter">
                     Metabolic <br /><span className="text-brand-primary italic font-normal">Diagnostic.</span>
                   </h1>
-                  <p className="text-brand-dark/40 text-[10px] md:text-[11px] font-bold tracking-[0.2em] max-w-sm mx-auto lg:mx-0 uppercase leading-relaxed">
+                  <p className="text-brand-dark/40 dark:text-white/30 text-[10px] md:text-[11px] font-bold tracking-[0.2em] max-w-sm mx-auto lg:mx-0 uppercase leading-relaxed">
                     PRECISION INSTRUMENTATION FOR REAL-TIME BIO-MOLECULAR DATA EXTRACTION.
                   </p>
                </div>
             </div>
 
-            {/* Archive Viewport (Hidden on Mobile) */}
-            <div className="hidden lg:block relative w-full max-w-lg aspect-video overflow-hidden rounded-[50px] bg-white border border-brand-dark/[0.06] shadow-3xl group/archive">
+            <div className="hidden lg:block relative w-full max-w-lg aspect-video overflow-hidden rounded-[50px] bg-white dark:bg-zinc-900 border border-brand-dark/[0.06] dark:border-white/5 shadow-3xl group/archive">
                <div className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${isArchiveVisible ? 'opacity-100' : 'opacity-0'}`}>
                   <img 
                     src={archiveSamples[archiveIdx]} 

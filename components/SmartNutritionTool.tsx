@@ -18,7 +18,7 @@ const SmartNutritionTool: React.FC = () => {
       label: language === 'ar' ? 'تعزيز المناعة' : 'Immunity Boost', 
       icon: <ShieldPlus size={22} />, 
       tag: 'RESILIENCE',
-      img: 'https://images.unsplash.com/photo-1616671285410-9c4451731633?w=800&q=80',
+      img: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800&q=80',
       code: 'PROT-IMN-01'
     },
     { 
@@ -34,7 +34,7 @@ const SmartNutritionTool: React.FC = () => {
       label: language === 'ar' ? 'التركيز الذهني' : 'Neural Focus', 
       icon: <Zap size={22} />, 
       tag: 'COGNITION',
-      img: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&q=80',
+      img: 'https://images.unsplash.com/photo-1532634896-26909d0d4b89?w=800&q=80',
       code: 'PROT-NRL-09'
     }
   ];
@@ -97,12 +97,15 @@ const SmartNutritionTool: React.FC = () => {
                 className={`group relative w-full flex-grow h-[140px] lg:h-auto overflow-hidden rounded-[45px] transition-all duration-700 border
                   ${selectedGoal === item.label 
                     ? 'border-brand-primary shadow-4xl scale-[1.02] z-20' 
-                    : 'border-brand-dark/[0.04] dark:border-white/5 bg-white dark:bg-zinc-900/40 hover:border-brand-primary/30 z-10'}`}
+                    : 'border-brand-dark/[0.04] dark:border-white/5 bg-white dark:bg-brand-surface hover:border-brand-primary/30 z-10'}`}
               >
-                <div className={`absolute inset-0 transition-all duration-[2s] ${selectedGoal === item.label ? 'opacity-100 scale-110' : 'opacity-10 grayscale group-hover:opacity-60 group-hover:grayscale-0'}`}>
+                {/* 50% opacity by default, 100% on hover or when selected */}
+                <div className={`absolute inset-0 transition-all duration-[1s] ${selectedGoal === item.label ? 'opacity-100 scale-110' : 'opacity-50 grayscale-[0.2] group-hover:opacity-100 group-hover:grayscale-0'}`}>
                    <img src={item.img} className="w-full h-full object-cover" alt={item.label} />
                 </div>
-                <div className={`absolute inset-0 transition-opacity duration-700 ${selectedGoal === item.label ? 'bg-gradient-to-r from-brand-dark/90 via-brand-dark/40 to-transparent' : 'bg-white/95 dark:bg-brand-dark/95 group-hover:bg-white/80 dark:group-hover:bg-brand-dark/80'}`} />
+                
+                {/* Adjusted Overlay for better 50% visibility */}
+                <div className={`absolute inset-0 transition-opacity duration-700 ${selectedGoal === item.label ? 'bg-gradient-to-r from-brand-dark/90 via-brand-dark/40 to-transparent' : 'bg-white/40 dark:bg-brand-dark/40 group-hover:bg-transparent'}`} />
 
                 <div className="relative p-10 flex items-center justify-between z-10 h-full">
                    <div className="flex items-center gap-6">
@@ -111,8 +114,8 @@ const SmartNutritionTool: React.FC = () => {
                         {item.icon}
                       </div>
                       <div className="text-left">
-                        <span className={`text-[8px] font-black tracking-widest block mb-1 ${selectedGoal === item.label ? 'text-brand-primary' : 'text-brand-dark/20'}`}>{item.code}</span>
-                        <h3 className={`text-2xl font-serif font-bold transition-colors duration-500 ${selectedGoal === item.label ? 'text-white' : 'text-brand-dark/40 dark:text-white/40 group-hover:text-brand-dark'}`}>
+                        <span className={`text-[8px] font-black tracking-widest block mb-1 ${selectedGoal === item.label ? 'text-brand-primary' : 'text-white shadow-sm'}`}>{item.code}</span>
+                        <h3 className={`text-2xl font-serif font-bold transition-colors duration-500 ${selectedGoal === item.label ? 'text-white' : 'text-white drop-shadow-md group-hover:text-brand-primary'}`}>
                           {item.label}
                         </h3>
                       </div>
@@ -126,7 +129,7 @@ const SmartNutritionTool: React.FC = () => {
           </div>
 
           <div ref={chamberRef} className="lg:col-span-7">
-             <div className="h-full bg-white dark:bg-zinc-900/40 rounded-[55px] border border-brand-dark/[0.03] dark:border-white/5 shadow-4xl relative overflow-hidden flex flex-col min-h-[520px]">
+             <div className="h-full bg-white dark:bg-brand-surface rounded-[55px] border border-brand-dark/[0.03] dark:border-white/5 shadow-4xl relative overflow-hidden flex flex-col min-h-[520px]">
                 {loading ? (
                   <div className="absolute inset-0 flex flex-col items-center justify-center space-y-12 z-40 bg-white/95 dark:bg-brand-dark/95 backdrop-blur-xl">
                     <div className="relative">
@@ -139,44 +142,4 @@ const SmartNutritionTool: React.FC = () => {
                   </div>
                 ) : result ? (
                   <div className="flex flex-col h-full animate-fade-in text-brand-dark dark:text-white">
-                    <div className="p-10 border-b border-brand-dark/[0.03] dark:border-white/5 flex justify-between items-center">
-                       <h3 className="text-4xl font-serif font-bold tracking-tighter">Metabolic <span className="text-brand-primary italic">Blueprint.</span></h3>
-                       <span className="text-4xl font-serif font-bold text-brand-primary">{result.totalCalories} <span className="text-xs ml-1">KCAL</span></span>
-                    </div>
-                    <div className="p-8 grid grid-cols-1 md:grid-cols-3 gap-6 flex-grow">
-                       {[
-                         { l: 'SUNRISE', i: <Sun size={20} />, d: result.breakfast },
-                         { l: 'PEAK', i: <CloudSun size={20} />, d: result.lunch },
-                         { l: 'ZENITH', i: <Moon size={20} />, d: result.dinner }
-                       ].map((m, idx) => (
-                         <div key={idx} className="p-8 rounded-[40px] bg-brand-cream/20 dark:bg-white/5 border border-brand-dark/[0.02] dark:border-white/5 space-y-4">
-                            <div className="w-12 h-12 rounded-2xl bg-white dark:bg-brand-dark flex items-center justify-center text-brand-primary shadow-xl">
-                               {m.i}
-                            </div>
-                            <h4 className="text-xl font-serif font-bold line-clamp-2">{m.d?.name}</h4>
-                            <p className="text-[10px] text-brand-dark/40 dark:text-white/20 italic leading-relaxed line-clamp-3">
-                              {m.d?.description}
-                            </p>
-                         </div>
-                       ))}
-                    </div>
-                    <div className="m-8 mt-0 p-8 bg-brand-primary rounded-[40px] flex items-center gap-8 shadow-3xl text-white">
-                       <Sparkles size={24} className="shrink-0" />
-                       <p className="text-md italic font-semibold leading-relaxed tracking-tight">"{result.advice}"</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center p-12 text-center space-y-8 opacity-20">
-                     <Beaker size={48} strokeWidth={0.8} className="text-brand-primary" />
-                     <h4 className="text-2xl font-serif font-bold italic">Awaiting Selection.</h4>
-                  </div>
-                )}
-             </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-};
-
-export default SmartNutritionTool;
+                    <div className="p-10 border-b border-brand-dark/[0.03] dark:border
