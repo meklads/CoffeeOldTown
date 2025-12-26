@@ -71,7 +71,12 @@ const Hero: React.FC = () => {
     } catch (err: any) {
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       setStatus('error');
-      setErrorMessage(err.message || (isAr ? "خطأ في الاتصال بالسيرفر." : "Connection fault."));
+      
+      if (err.message === "QUOTA_EXCEEDED") {
+        setErrorMessage(isAr ? "عذراً، وصل النظام إلى حده الأقصى حالياً. يرجى المحاولة لاحقاً." : "System limit reached. Please try again later.");
+      } else {
+        setErrorMessage(isAr ? "حدث خطأ غير متوقع في التشخيص." : "Unexpected diagnostic fault.");
+      }
     }
   };
 
@@ -261,11 +266,13 @@ const Hero: React.FC = () => {
                   )}
 
                   {status === 'error' && (
-                    <div className="absolute inset-0 bg-brand-dark/90 backdrop-blur-md flex flex-col items-center justify-center p-12 text-center text-white z-50">
-                      <XCircle size={48} className="text-red-500 mb-6" />
+                    <div className="absolute inset-0 bg-brand-dark/95 backdrop-blur-xl flex flex-col items-center justify-center p-12 text-center text-white z-50">
+                      <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mb-6">
+                        <XCircle size={40} className="text-red-500" />
+                      </div>
                       <h4 className="text-2xl font-serif font-bold italic mb-4">{isAr ? 'فشل التحليل' : 'Analysis Failed'}</h4>
-                      <p className="text-xs text-white/50 mb-8">{errorMessage}</p>
-                      <button onClick={handleAnalyze} className="bg-white text-brand-dark px-10 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2">
+                      <p className="text-sm text-white/50 mb-10 leading-relaxed">{errorMessage}</p>
+                      <button onClick={handleAnalyze} className="w-full bg-white text-brand-dark py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-brand-primary transition-colors">
                         <RefreshCcw size={14} /> {isAr ? 'إعادة المحاولة' : 'Retry'}
                       </button>
                     </div>
@@ -275,7 +282,7 @@ const Hero: React.FC = () => {
                     <div className="absolute bottom-10 left-10 right-10 z-40">
                       <button 
                         onClick={handleAnalyze} 
-                        className="w-full py-6 bg-brand-primary text-brand-dark rounded-3xl font-black text-[10px] uppercase tracking-[0.5em] shadow-glow hover:scale-105 active:scale-95 transition-all"
+                        className="w-full py-6 bg-brand-primary text-brand-dark rounded-3xl font-black text-[10px] uppercase tracking-[0.5em] shadow-glow transition-all duration-300 ease-out hover:scale-105 hover:-translate-y-1 hover:brightness-110 hover:shadow-[0_20px_40px_rgba(194,163,107,0.3)] active:scale-95 active:bg-gradient-to-r active:from-[#C2A36B] active:to-[#10B981] active:text-white"
                       >
                         {isAr ? 'بدء المزامنة' : 'Sync Diagnostics'}
                       </button>
