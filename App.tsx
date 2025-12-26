@@ -62,8 +62,12 @@ const App: React.FC = () => {
     localStorage.setItem('ot_lang', language);
   }, [language]);
 
+  // Logic Change: Reset results when persona changes to prevent stale data
   useEffect(() => {
     localStorage.setItem('ot_persona', currentPersona);
+    if (lastAnalysisResult) {
+       setLastAnalysisResult(null); // Clear previous scan results to force re-analysis with new persona
+    }
   }, [currentPersona]);
 
   useEffect(() => {
@@ -147,9 +151,9 @@ const App: React.FC = () => {
       case 'home':
         return (
           <div className="animate-fade-in space-y-0 overflow-hidden bg-brand-light dark:bg-brand-dark bg-grain">
-            <Hero />
-            <HorizontalDivider />
             <BioNexus />
+            <HorizontalDivider />
+            <Hero />
             <HorizontalDivider />
             <SmartNutritionTool />
             <HorizontalDivider />
@@ -166,7 +170,7 @@ const App: React.FC = () => {
       case 'about': return <About />;
       case 'contact': return <ContactUs />;
       case 'faq': return <FAQ />;
-      default: return <Hero />;
+      default: return <BioNexus />;
     }
   };
 

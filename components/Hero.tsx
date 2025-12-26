@@ -1,12 +1,12 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Microscope, Fingerprint, CheckCircle2, RotateCcw, Database, Sparkles, Flame, Activity, AlertTriangle } from 'lucide-react';
+import { Plus, Microscope, Fingerprint, CheckCircle2, RotateCcw, Database, Sparkles, Flame, Activity, AlertTriangle, RefreshCcw } from 'lucide-react';
 import { SectionId } from '../types.ts';
 import { useApp } from '../context/AppContext.tsx';
 import { analyzeMealImage } from '../services/geminiService.ts';
 
 const Hero: React.FC = () => {
-  const { incrementScans, setLastAnalysisResult, scrollTo, lastAnalysisResult, currentPersona } = useApp();
+  const { incrementScans, setLastAnalysisResult, scrollTo, lastAnalysisResult, currentPersona, language } = useApp();
   const [image, setImage] = useState<string | null>(null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'error' | 'success'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
@@ -15,6 +15,7 @@ const Hero: React.FC = () => {
   const [archiveIdx, setArchiveIdx] = useState(0);
   const [isArchiveVisible, setIsArchiveVisible] = useState(true);
   
+  const isAr = language === 'ar';
   const fileInputRef = useRef<HTMLInputElement>(null);
   const progressIntervalRef = useRef<number | null>(null);
 
@@ -95,6 +96,7 @@ const Hero: React.FC = () => {
     setStatus('idle');
     setProgress(0);
     setErrorMessage('');
+    setLastAnalysisResult(null);
   };
 
   return (
@@ -178,10 +180,27 @@ const Hero: React.FC = () => {
                         </div>
                       )}
 
-                      {status === 'idle' && (
-                        <div className="absolute inset-0 bg-brand-dark/40 lg:opacity-0 lg:group-hover:opacity-100 transition-all flex flex-col items-center justify-center gap-4 z-40 backdrop-blur-[2px]">
-                           <button onClick={handleAnalyze} className="bg-brand-primary text-brand-dark p-8 rounded-full shadow-glow hover:scale-110 active:scale-95 transition-all"><Microscope size={36} /></button>
-                           <span className="text-[9px] font-black text-white uppercase tracking-[0.6em]">Run_Diagnostic</span>
+                      {/* NEW LOGIC: If image exists but NO result, it means persona was changed */}
+                      {status !== 'loading' && !lastAnalysisResult && (
+                        <div className="absolute inset-0 bg-brand-dark/80 backdrop-blur-[4px] flex flex-col items-center justify-center p-8 text-center animate-fade-in text-white z-40">
+                           <RefreshCcw size={48} className="text-brand-primary mb-6 animate-spin-slow opacity-40" />
+                           <h4 className="text-2xl font-serif font-bold italic mb-4">
+                              {isAr ? 'تحديث المعايرة المطلوبة' : 'Recalibration Required'}
+                           </h4>
+                           <p className="text-[10px] text-white/50 font-black uppercase tracking-[0.3em] mb-8 leading-relaxed">
+                              {isAr 
+                                ? `تم اكتشاف تغيير في البروتوكول إلى [${currentPersona}]. يرجى إعادة التشغيل لمطابقة المعايير الحيوية الجديدة.` 
+                                : `Protocol changed to [${currentPersona}]. Please re-run to match new bio-parameters.`}
+                           </p>
+                           <button 
+                             onClick={handleAnalyze} 
+                             className="bg-brand-primary text-brand-dark px-10 py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.5em] shadow-glow hover:scale-105 active:scale-95 transition-all"
+                           >
+                              {isAr ? 'إعادة تحليل العينة' : 'RE-ANALYZE SPECIMEN'}
+                           </button>
+                           <button onClick={resetScanner} className="mt-4 text-white/20 text-[8px] font-black uppercase tracking-widest hover:text-white transition-colors">
+                              {isAr ? 'إلغاء العينة الحالية' : 'DISCARD SAMPLE'}
+                           </button>
                         </div>
                       )}
                     </div>

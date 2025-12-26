@@ -2,11 +2,11 @@
 import React from 'react';
 import { Instagram, Facebook, Twitter, Youtube, Mail, ArrowUpRight, ShieldCheck, Send } from 'lucide-react';
 import { SectionId } from '../types.ts';
-// Fix: Import useApp from its source context file
 import { useApp } from '../context/AppContext.tsx';
 
 const Footer: React.FC = () => {
   const { language, setView, view, scrollTo } = useApp();
+  const isAr = language === 'ar';
   
   const handleNavClick = (id: string) => {
     if (id === SectionId.PHASE_04_ARCHIVE) {
@@ -21,6 +21,13 @@ const Footer: React.FC = () => {
       scrollTo(id);
     }
   };
+
+  const navItems = [
+    { label: isAr ? '01. الهوية' : '01. IDENTITY', id: SectionId.BIO_NEXUS },
+    { label: isAr ? '02. التشخيص' : '02. DIAGNOSTIC', id: SectionId.PHASE_01_SCAN },
+    { label: isAr ? '03. التخليق' : '03. SYNTHESIS', id: SectionId.PHASE_03_SYNTHESIS },
+    { label: isAr ? '04. السجل' : '04. LEDGER', id: SectionId.PHASE_04_ARCHIVE },
+  ];
 
   return (
     <footer className="bg-brand-dark pt-32 pb-12 border-t border-white/5 relative overflow-hidden">
@@ -58,10 +65,13 @@ const Footer: React.FC = () => {
           <div className="lg:col-span-4 space-y-8">
              <h4 className="text-[10px] font-black text-white/20 uppercase tracking-[0.4em]">SYSTEMS</h4>
              <ul className="space-y-4 text-sm text-white/50 font-bold uppercase tracking-widest text-[9px]">
-                <li><button onClick={() => handleNavClick(SectionId.PHASE_01_SCAN)} className="hover:text-brand-primary transition-colors text-left">01. SCAN</button></li>
-                <li><button onClick={() => handleNavClick(SectionId.PHASE_02_PROTOCOLS)} className="hover:text-brand-primary transition-colors text-left">02. PROTOCOLS</button></li>
-                <li><button onClick={() => handleNavClick(SectionId.PHASE_03_SYNTHESIS)} className="hover:text-brand-primary transition-colors text-left">03. SYNTHESIS</button></li>
-                <li><button onClick={() => handleNavClick(SectionId.PHASE_04_ARCHIVE)} className="hover:text-brand-primary transition-colors text-left">04. ARCHIVE</button></li>
+                {navItems.map((item, i) => (
+                  <li key={i}>
+                    <button onClick={() => handleNavClick(item.id)} className="hover:text-brand-primary transition-colors text-left">
+                      {item.label}
+                    </button>
+                  </li>
+                ))}
              </ul>
           </div>
 

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Menu, X, ShoppingCart, BookOpen, Activity, Moon, Sun } from 'lucide-react';
+import { Menu, X, ShoppingCart, Moon, Sun } from 'lucide-react';
 import { SectionId } from '../types.ts';
 import { useApp } from '../context/AppContext.tsx';
 import { translations } from '../translations.ts';
@@ -9,7 +9,7 @@ const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const { setView, view, scrollTo, language, theme, toggleTheme } = useApp();
-  const t = translations[language].nav;
+  const isAr = language === 'ar';
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 10);
@@ -17,12 +17,27 @@ const Navbar: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Simplified and corrected mapping for smooth navigation
   const navLinks = [
-    { label: t.phase01, id: SectionId.PHASE_01_SCAN, type: 'scroll' },
-    { label: language === 'ar' ? '02. التخليق' : '02. SYNTHESIS', id: SectionId.PHASE_03_SYNTHESIS, type: 'scroll' },
-    { label: language === 'ar' ? '03. المعرفة' : '03. JOURNAL', id: SectionId.PHASE_05_UPGRADE, type: 'scroll' },
-    { label: language === 'ar' ? '04. الأرشيف' : '04. ARCHIVE', id: 'vaults', type: 'view' },
+    { 
+      label: isAr ? '01. الهوية' : '01. IDENTITY', 
+      id: SectionId.BIO_NEXUS, 
+      type: 'scroll' 
+    },
+    { 
+      label: isAr ? '02. التشخيص' : '02. DIAGNOSTIC', 
+      id: SectionId.PHASE_01_SCAN, 
+      type: 'scroll' 
+    },
+    { 
+      label: isAr ? '03. التخليق' : '03. SYNTHESIS', 
+      id: SectionId.PHASE_03_SYNTHESIS, 
+      type: 'scroll' 
+    },
+    { 
+      label: isAr ? '04. السجل' : '04. LEDGER', 
+      id: 'vaults', 
+      type: 'view' 
+    },
   ];
 
   const handleLinkClick = (link: { label: string, id: string, type: string }) => {
@@ -32,7 +47,6 @@ const Navbar: React.FC = () => {
     } else {
       if (view !== 'home') {
         setView('home');
-        // Wait for section to render if coming from another view
         setTimeout(() => scrollTo(link.id), 250);
       } else {
         scrollTo(link.id);
@@ -69,7 +83,7 @@ const Navbar: React.FC = () => {
           ))}
           
           <button onClick={() => { setView('coffee'); window.scrollTo(0,0); }} className={`text-[9px] font-black uppercase tracking-[0.3em] flex items-center gap-2 ${isScrolled || view !== 'home' ? 'text-white/60 hover:text-brand-primary' : 'text-brand-dark/60 hover:text-brand-dark dark:text-white/40 dark:hover:text-white'}`}>
-            {translations[language].nav.store} <ShoppingCart size={12} />
+            {isAr ? 'المتجر' : 'STORE'} <ShoppingCart size={12} />
           </button>
 
           <button 
