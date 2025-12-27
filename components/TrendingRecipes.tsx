@@ -53,7 +53,7 @@ const TrendingRecipes: React.FC = () => {
                  <span>GLOBAL SYNCHRONIZATION</span>
               </div>
               <h2 className="text-5xl md:text-7xl font-serif font-bold text-brand-dark dark:text-white leading-[0.8] tracking-tighter">
-                Trending <br /> <span className="text-brand-primary italic font-normal">Systems.</span>
+                Trending <span className="text-brand-primary italic font-normal">Systems.</span>
               </h2>
            </div>
            <button 

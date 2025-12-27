@@ -42,7 +42,7 @@ const Categories: React.FC = () => {
                   <span>KNOWLEDGE HUB</span>
                </div>
                <h2 className="text-6xl md:text-8xl font-serif font-bold text-brand-dark dark:text-white tracking-tighter leading-none">
-                 Learn & <br /> <span className="text-brand-primary italic font-normal">Upgrade.</span>
+                 Learn & <span className="text-brand-primary italic font-normal">Upgrade.</span>
                </h2>
             </div>
             <p className="text-brand-dark/40 dark:text-white/30 text-lg md:text-xl font-medium max-w-sm italic leading-relaxed border-l-2 border-brand-primary/20 pl-8">

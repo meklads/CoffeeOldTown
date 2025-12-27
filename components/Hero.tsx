@@ -1,12 +1,12 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Microscope, Fingerprint, CheckCircle2, RotateCcw, Flame, Activity, AlertTriangle, RefreshCcw, Baby, HeartPulse, Zap, Settings2, ShieldCheck, Binary, Share2, BookOpen, ExternalLink, Droplets, Info, Sparkles, ChevronRight, Loader2, UploadCloud, XCircle } from 'lucide-react';
+import { Plus, Microscope, RotateCcw, Flame, Activity, RefreshCcw, Baby, HeartPulse, Zap, Droplets, Info, XCircle, Camera, Utensils, Apple, Brain } from 'lucide-react';
 import { SectionId, BioPersona } from '../types.ts';
 import { useApp } from '../context/AppContext.tsx';
 import { analyzeMealImage } from '../services/geminiService.ts';
 
 const Hero: React.FC = () => {
-  const { incrementScans, setLastAnalysisResult, scrollTo, lastAnalysisResult, currentPersona, setCurrentPersona, language } = useApp();
+  const { incrementScans, setLastAnalysisResult, lastAnalysisResult, currentPersona, setCurrentPersona, language, setView } = useApp();
   const [image, setImage] = useState<string | null>(null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'error' | 'success'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
@@ -15,12 +15,48 @@ const Hero: React.FC = () => {
   
   const isAr = language === 'ar';
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const scannerRef = useRef<HTMLDivElement>(null);
   const progressIntervalRef = useRef<number | null>(null);
+
+  const personaData = [
+    { 
+      id: 'GENERAL' as BioPersona, 
+      label: isAr ? 'عام' : 'GENERAL', 
+      slogan: isAr ? 'امسح وجبتك اليومية المعتادة' : 'Scan your daily regular meals',
+      icon: <Utensils size={14} />
+    },
+    { 
+      id: 'PREGNANCY' as BioPersona, 
+      label: isAr ? 'حمل' : 'PREGNANCY', 
+      slogan: isAr ? 'امسحي طعامك لسلامة الجنين' : 'Scan safe prenatal nutrients',
+      icon: <Baby size={14} />
+    },
+    { 
+      id: 'DIABETIC' as BioPersona, 
+      label: isAr ? 'سكري' : 'DIABETIC', 
+      slogan: isAr ? 'راقب السكر والكربوهيدرات الآن' : 'Scan for glucose stability',
+      icon: <HeartPulse size={14} />
+    },
+    { 
+      id: 'ATHLETE' as BioPersona, 
+      label: isAr ? 'رياضي' : 'ATHLETE', 
+      slogan: isAr ? 'امسح بروتين الاستشفاء والأداء' : 'Scan high-performance fuel',
+      icon: <Zap size={14} />
+    }
+  ];
 
   const handlePersonaSelect = (id: BioPersona) => {
     setCurrentPersona(id);
     setStatus('idle');
     setErrorMessage('');
+    
+    // التمرير التلقائي للماسح الضوئي عند اختيار البروتوكول
+    if (scannerRef.current) {
+      const offset = 100;
+      const elementPosition = scannerRef.current.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - offset;
+      window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+    }
   };
 
   const handleAnalyze = async () => {
@@ -71,42 +107,26 @@ const Hero: React.FC = () => {
     } catch (err: any) {
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       setStatus('error');
-      
-      if (err.message === "QUOTA_EXCEEDED") {
-        setErrorMessage(isAr ? "عذراً، وصل النظام إلى حده الأقصى حالياً. يرجى المحاولة لاحقاً." : "System limit reached. Please try again later.");
-      } else if (err.message === "MISSING_KEY") {
-        setErrorMessage(isAr ? "خطأ في التكوين: مفتاح API غير متوفر في الخادم." : "Configuration Error: API Key not found on server.");
-      } else {
-        setErrorMessage(isAr ? "حدث خطأ في الاتصال بالخادم. يرجى التأكد من إعدادات Vercel." : "Server communication error. Check Vercel settings.");
-      }
+      setErrorMessage(isAr ? "حدث خطأ في الاتصال. يرجى التأكد من إعدادات المفتاح." : "Communication error. Verify API setup.");
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (!file.type.startsWith('image/')) {
-        setStatus('error');
-        setErrorMessage(isAr ? "يرجى اختيار صورة." : "Select an image.");
-        return;
-      }
-      // تقليل حجم الصورة لضمان استقرار الطلب في Vercel
       const reader = new FileReader();
       reader.onloadend = () => { 
         const img = new Image();
         img.onload = () => {
           const canvas = document.createElement('canvas');
           const maxDim = 800;
-          let w = img.width;
-          let h = img.height;
+          let w = img.width, h = img.height;
           if (w > maxDim || h > maxDim) {
              if (w > h) { h = (h * maxDim) / w; w = maxDim; }
              else { w = (w * maxDim) / h; h = maxDim; }
           }
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, w, h);
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d')?.drawImage(img, 0, 0, w, h);
           setImage(canvas.toDataURL('image/jpeg', 0.7)); 
           setStatus('idle'); 
           setProgress(0);
@@ -115,43 +135,6 @@ const Hero: React.FC = () => {
       };
       reader.readAsDataURL(file);
     }
-  };
-
-  const resetScanner = () => {
-    setImage(null);
-    setStatus('idle');
-    setProgress(0);
-    setErrorMessage('');
-  };
-
-  const getWarningIcon = (type: string) => {
-    switch (type) {
-      case 'sugar': return <Droplets size={14} className="text-orange-400" />;
-      case 'pregnancy': return <Baby size={14} className="text-rose-400" />;
-      case 'allergy': return <AlertTriangle size={14} className="text-red-400" />;
-      case 'sodium': return <Activity size={14} className="text-amber-400" />;
-      default: return <Info size={14} className="text-blue-400" />;
-    }
-  };
-
-  const getRiskColor = (level: string) => {
-    switch (level) {
-      case 'high': return 'bg-red-500/10 text-red-500 border-red-500/20';
-      case 'medium': return 'bg-orange-500/10 text-orange-500 border-orange-500/20';
-      default: return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
-    }
-  };
-
-  const getHealthScoreColor = (score: number) => {
-    if (score >= 80) return 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]';
-    if (score >= 50) return 'bg-brand-primary shadow-[0_0_10px_rgba(194,163,107,0.5)]';
-    return 'bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]';
-  };
-
-  const getHealthScoreIconColor = (score: number) => {
-    if (score >= 80) return 'text-emerald-500';
-    if (score >= 50) return 'text-brand-primary';
-    return 'text-rose-500';
   };
 
   return (
@@ -169,41 +152,53 @@ const Hero: React.FC = () => {
                 Precision <br /><span className="text-brand-primary italic font-normal">Command.</span>
               </h1>
               <p className="text-brand-dark/50 dark:text-white/30 text-lg italic max-w-md">
-                {isAr ? 'مسح بيومتري متطور لتحليل الوجبات بناءً على حالتك الصحية.' : 'Advanced bio-metric scanning for health-aware meal analysis.'}
+                {isAr ? 'اختر بروتوكولك الصحي المناسب لنبدأ مسح طعامك الآن.' : 'Select your health protocol to start scanning your meal.'}
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 max-w-md">
-              {(['GENERAL', 'PREGNANCY', 'DIABETIC', 'ATHLETE'] as BioPersona[]).map((id) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md">
+              {personaData.map((p) => (
                 <button
-                  key={id}
-                  onClick={() => handlePersonaSelect(id)}
-                  className={`p-6 rounded-3xl border transition-all text-left group
-                    ${currentPersona === id 
-                      ? 'bg-brand-primary border-brand-primary text-white shadow-xl' 
-                      : 'bg-white dark:bg-white/5 border-brand-dark/5 dark:border-white/5 text-brand-dark dark:text-white/40 hover:border-brand-primary/30'}`}
+                  key={p.id}
+                  onClick={() => handlePersonaSelect(p.id)}
+                  className={`group p-6 rounded-[32px] border transition-all duration-500 text-left relative overflow-hidden flex flex-col justify-between h-[130px]
+                    ${currentPersona === p.id 
+                      ? 'bg-brand-primary border-brand-primary text-white shadow-xl scale-[1.02]' 
+                      : 'bg-white dark:bg-white/5 border-brand-dark/10 dark:border-white/10 text-brand-dark dark:text-white/60 hover:border-brand-primary/40 hover:bg-brand-primary/5 active:scale-95'}`}
                 >
-                  <span className="text-[10px] font-black uppercase tracking-widest block mb-1 opacity-60">Protocol</span>
-                  <span className="text-sm font-bold">{id}</span>
+                  <div className="flex justify-between items-start">
+                     <span className={`text-[9px] font-black uppercase tracking-widest block opacity-60 ${currentPersona === p.id ? 'text-white' : 'text-brand-primary'}`}>PROTOCOL</span>
+                     <div className={`transition-all duration-500 ${currentPersona === p.id ? 'scale-110' : 'group-hover:scale-110 opacity-40'}`}>
+                        {p.icon}
+                     </div>
+                  </div>
+                  <div>
+                    <span className="text-sm font-bold block mb-1">{p.label}</span>
+                    <span className={`text-[10px] italic font-medium block leading-tight transition-colors ${currentPersona === p.id ? 'text-white/80' : 'text-brand-dark/40 dark:text-white/30'}`}>
+                      {p.slogan}
+                    </span>
+                  </div>
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="flex justify-center">
+          <div ref={scannerRef} className="flex justify-center scroll-mt-32">
             <div className="relative w-full max-w-[440px] aspect-[3/4] rounded-[60px] bg-white dark:bg-zinc-900 border-4 border-white dark:border-zinc-800 shadow-4xl overflow-hidden group">
-              
               {!image ? (
                 <div 
                   onClick={() => fileInputRef.current?.click()}
-                  className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer p-10"
+                  className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer p-10 transition-colors hover:bg-brand-primary/5"
                 >
-                  <div className="w-24 h-24 bg-brand-primary/10 rounded-full flex items-center justify-center text-brand-primary mb-8 animate-pulse">
-                    <Plus size={48} />
+                  <div className="w-24 h-24 bg-brand-primary/10 rounded-full flex items-center justify-center text-brand-primary mb-8 animate-pulse shadow-glow">
+                    <Camera size={40} />
                   </div>
-                  <h4 className="text-2xl font-serif font-bold italic text-brand-dark/40 dark:text-white/20">
-                    {isAr ? 'تحميل العينة' : 'Load Specimen'}
+                  <h4 className="text-2xl font-serif font-bold italic text-brand-dark/40 dark:text-white/20 mb-2">
+                    {isAr ? 'اضغط لمسح وجبتك' : 'Scan Your Meal'}
                   </h4>
+                  <p className="text-[10px] font-black text-brand-primary uppercase tracking-[0.4em] text-center">
+                    {isAr ? 'التقط صورة أو اختر من المعرض' : 'Take a photo or upload from gallery'}
+                  </p>
                   <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
                 </div>
               ) : (
@@ -219,7 +214,7 @@ const Hero: React.FC = () => {
                               <circle cx="50%" cy="50%" r="45%" stroke="currentColor" strokeWidth="2" fill="transparent" className="text-white/10" />
                               <circle cx="50%" cy="50%" r="45%" stroke="currentColor" strokeWidth="6" fill="transparent" strokeDasharray="283" strokeDashoffset={283 - (283 * progress / 100)} className="text-brand-primary transition-all duration-300" />
                            </svg>
-                           <div className="absolute inset-0 flex items-center justify-center font-bold">{progress}%</div>
+                           <div className="absolute inset-0 flex items-center justify-center font-bold text-xl">{progress}%</div>
                         </div>
                         <p className="text-[10px] font-black uppercase tracking-[0.4em] animate-pulse">{loadingStep}</p>
                       </div>
@@ -227,82 +222,46 @@ const Hero: React.FC = () => {
                   )}
 
                   {status === 'success' && lastAnalysisResult && (
-                    <div className="absolute inset-0 bg-brand-dark/95 backdrop-blur-xl z-50 p-8 text-white overflow-y-auto custom-scrollbar">
+                    <div className="absolute inset-0 bg-brand-dark/95 backdrop-blur-xl z-50 p-8 text-white overflow-y-auto custom-scrollbar animate-fade-in">
                       <div className="flex justify-between items-center mb-8">
-                        <div className="bg-brand-primary/20 px-4 py-1.5 rounded-full border border-brand-primary/30 text-brand-primary text-[8px] font-black tracking-widest">
-                          BIO_READY
-                        </div>
-                        <button onClick={resetScanner} className="p-2 text-white/40 hover:text-white"><RotateCcw size={20} /></button>
+                        <div className="bg-brand-primary/20 px-4 py-1.5 rounded-full border border-brand-primary/30 text-brand-primary text-[8px] font-black tracking-widest">BIO_READY</div>
+                        <button onClick={() => { setImage(null); setStatus('idle'); }} className="p-2 text-white/40 hover:text-white transition-colors"><RotateCcw size={20} /></button>
                       </div>
-
                       <div className="space-y-6">
                         <h3 className="text-2xl font-serif font-bold italic leading-tight">{lastAnalysisResult.summary}</h3>
-                        
                         <div className="grid grid-cols-2 gap-4">
                           <div className="bg-white/5 p-4 rounded-3xl border border-white/5 flex flex-col justify-between">
-                            <div className="flex items-center gap-2 opacity-30 mb-1">
-                              <Flame size={12} />
-                              <span className="text-[8px] font-black uppercase tracking-widest">Energy</span>
-                            </div>
+                            <span className="text-[8px] font-black uppercase tracking-widest opacity-30">Energy</span>
                             <p className="text-xl font-serif font-bold">{lastAnalysisResult.totalCalories} <span className="text-[10px] opacity-40">kcal</span></p>
                           </div>
-                          <div className="bg-white/5 p-4 rounded-3xl border border-white/5 space-y-3">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2 opacity-30">
-                                <Activity size={12} className={getHealthScoreIconColor(lastAnalysisResult.healthScore)} />
-                                <span className="text-[8px] font-black uppercase tracking-widest">Vitality</span>
-                              </div>
-                              <span className={`text-sm font-serif font-bold ${getHealthScoreIconColor(lastAnalysisResult.healthScore)}`}>{lastAnalysisResult.healthScore}%</span>
-                            </div>
-                            <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
-                              <div 
-                                className={`h-full transition-all duration-1000 ease-out ${getHealthScoreColor(lastAnalysisResult.healthScore)}`}
-                                style={{ width: `${lastAnalysisResult.healthScore}%` }}
-                              />
-                            </div>
+                          <div className="bg-white/5 p-4 rounded-3xl border border-white/5">
+                             <div className="flex justify-between items-center mb-2">
+                               <span className="text-[8px] font-black uppercase tracking-widest opacity-30">Vitality</span>
+                               <span className="text-xs text-brand-primary font-bold">{lastAnalysisResult.healthScore}%</span>
+                             </div>
+                             <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
+                               <div className="h-full bg-brand-primary" style={{ width: `${lastAnalysisResult.healthScore}%` }} />
+                             </div>
                           </div>
                         </div>
-
-                        {lastAnalysisResult.warnings?.length > 0 && (
-                          <div className="space-y-2">
-                             {lastAnalysisResult.warnings.map((w: any, idx: number) => (
-                               <div key={idx} className={`p-4 rounded-2xl border flex items-center gap-4 text-xs font-bold italic ${getRiskColor(w.riskLevel)}`}>
-                                 {getWarningIcon(w.type)}
-                                 <span>{w.text}</span>
-                               </div>
-                             ))}
-                          </div>
-                        )}
+                        <div className="p-4 bg-white/5 rounded-2xl border border-white/5 italic text-sm text-white/70">"{lastAnalysisResult.personalizedAdvice}"</div>
                       </div>
-                      
-                      <button 
-                        onClick={() => scrollTo(SectionId.PHASE_03_SYNTHESIS)} 
-                        className="w-full mt-8 py-5 bg-brand-primary text-brand-dark rounded-3xl text-[9px] font-black uppercase tracking-[0.4em] shadow-glow active:scale-95 transition-transform"
-                      >
-                        Generate Full Protocol
-                      </button>
+                      <button onClick={() => { setView('home'); setTimeout(() => { const el = document.getElementById(SectionId.PHASE_03_SYNTHESIS); if(el) window.scrollTo({top: el.offsetTop - 80, behavior: 'smooth'}); }, 300); }} className="w-full mt-10 py-5 bg-brand-primary text-brand-dark rounded-3xl text-[9px] font-black uppercase tracking-[0.4em] shadow-glow">Generate Full Protocol</button>
                     </div>
                   )}
 
                   {status === 'error' && (
-                    <div className="absolute inset-0 bg-brand-dark/95 backdrop-blur-xl flex flex-col items-center justify-center p-12 text-center text-white z-50">
-                      <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mb-6">
-                        <XCircle size={40} className="text-red-500" />
-                      </div>
+                    <div className="absolute inset-0 bg-brand-dark/95 backdrop-blur-xl flex flex-col items-center justify-center p-12 text-center text-white z-50 animate-fade-in">
+                      <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mb-6"><XCircle size={40} className="text-red-500" /></div>
                       <h4 className="text-2xl font-serif font-bold italic mb-4">{isAr ? 'فشل التحليل' : 'Analysis Failed'}</h4>
-                      <p className="text-sm text-white/50 mb-10 leading-relaxed">{errorMessage}</p>
-                      <button onClick={handleAnalyze} className="w-full bg-white text-brand-dark py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-brand-primary transition-colors">
-                        <RefreshCcw size={14} /> {isAr ? 'إعادة المحاولة' : 'Retry'}
-                      </button>
+                      <p className="text-sm text-white/50 mb-10">{errorMessage}</p>
+                      <button onClick={handleAnalyze} className="w-full bg-white text-brand-dark py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-brand-primary transition-colors"><RefreshCcw size={14} /> {isAr ? 'إعادة المحاولة' : 'Retry'}</button>
                     </div>
                   )}
 
                   {status === 'idle' && (
                     <div className="absolute bottom-10 left-10 right-10 z-40">
-                      <button 
-                        onClick={handleAnalyze} 
-                        className="w-full py-6 bg-brand-primary text-brand-dark rounded-3xl font-black text-[10px] uppercase tracking-[0.5em] shadow-glow transition-all duration-300 ease-out hover:scale-105 hover:-translate-y-1 hover:brightness-110 hover:shadow-[0_20px_40px_rgba(194,163,107,0.3)] active:scale-95 active:bg-gradient-to-r active:from-[#C2A36B] active:to-[#10B981] active:text-white"
-                      >
+                      <button onClick={handleAnalyze} className="w-full py-6 bg-brand-primary text-brand-dark rounded-3xl font-black text-[10px] uppercase tracking-[0.5em] shadow-glow active:scale-95 transition-all">
                         {isAr ? 'بدء المزامنة' : 'Sync Diagnostics'}
                       </button>
                     </div>
@@ -311,7 +270,6 @@ const Hero: React.FC = () => {
               )}
             </div>
           </div>
-
         </div>
       </div>
     </section>
