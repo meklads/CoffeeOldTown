@@ -51,12 +51,13 @@ const Hero: React.FC = () => {
     }, 200);
 
     try {
+      // تمرير اللغة الحالية هنا
       const result = await analyzeMealImage(image, {
         chronicDiseases: "none",
         dietProgram: "general",
         activityLevel: "moderate",
         persona: currentPersona
-      });
+      }, language); 
       
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       setProgress(100);
