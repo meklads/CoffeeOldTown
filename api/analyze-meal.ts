@@ -42,7 +42,6 @@ const mealAnalysisSchema = {
 };
 
 export default async function handler(req: any, res: any) {
-  // CORS Headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -56,21 +55,26 @@ export default async function handler(req: any, res: any) {
     return res.status(500).json({ error: 'SYSTEM_FAULT: API key missing.' });
   }
 
+  if (!image) {
+    return res.status(400).json({ error: 'No image data provided' });
+  }
+
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    // تنظيف بيانات الصورة لتكون متوافقة مع البروتوكول
     const base64Data = image.includes(',') ? image.split(',')[1] : image;
     const persona = profile?.persona || 'GENERAL';
 
-    const languageInstruction = lang === 'ar' 
-      ? "يجب أن تكون الاستجابة باللغة العربية الفصحى فقط." 
-      : "Response must be entirely in English.";
+    const prompt = lang === 'ar' 
+      ? `حلل هذا الطبق بدقة مذهلة لشخص يتبع بروتوكول ${persona}. قدم النتيجة باللغة العربية حصراً وبتنسيق JSON.`
+      : `Analyze this dish with clinical precision for a user following the ${persona} protocol. Response must be entirely in English and formatted as JSON.`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: {
         parts: [
           { inlineData: { data: base64Data, mimeType: 'image/jpeg' } },
-          { text: `تحليل جزيئي دقيق لهذا الطبق بناءً على بروتوكول: ${persona}. ${languageInstruction} قدم النتيجة بتنسيق JSON حصراً.` }
+          { text: prompt }
         ]
       },
       config: { 
@@ -85,7 +89,11 @@ export default async function handler(req: any, res: any) {
     
     return res.status(200).json(JSON.parse(resultText.trim()));
   } catch (error: any) {
-    console.error("Server API Error:", error);
-    return res.status(500).json({ error: 'Analysis Failed', details: error.message });
+    console.error("Vercel Serverless Error:", error);
+    return res.status(500).json({ 
+      error: 'Analysis Failed', 
+      details: error.message,
+      code: error.status || 500
+    });
   }
 }

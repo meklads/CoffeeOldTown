@@ -23,13 +23,13 @@ const Hero: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const progressIntervalRef = useRef<number | null>(null);
 
-  // تحديث المكون إذا تغيرت النتائج عالمياً (مثلاً عند العودة من الأرشيف)
+  // تحديث المكون إذا تغيرت النتائج عالمياً أو تم الدخول للمكون مرة أخرى
   useEffect(() => {
-    if (lastAnalysisResult && status !== 'loading') {
+    if (lastAnalysisResult && !image) {
       setImage(lastAnalysisResult.imageUrl || null);
       setStatus('success');
     }
-  }, [lastAnalysisResult]);
+  }, [lastAnalysisResult, image]);
 
   const personaConfigs: Record<BioPersona, { label: string, icon: React.ReactNode, slogan: string, color: string, border: string, accent: string }> = {
     GENERAL: { 
@@ -127,17 +127,14 @@ const Hero: React.FC = () => {
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       setStatus('error');
       
-      if (err.message === "MISSING_KEY") {
-        setErrorMsg({
-          title: isAr ? "خطأ في الاتصال" : "Connection Error",
-          detail: isAr ? "مفتاح الـ API غير متصل بالنظام في Vercel." : "The API key is missing in Vercel."
-        });
-      } else {
-        setErrorMsg({
-          title: isAr ? "فشل المسح الضوئي" : "Scan Synthesis Failed",
-          detail: isAr ? "لم نتمكن من تحليل العينة." : "Unable to analyze specimen."
-        });
-      }
+      const isMissingKey = err.message && err.message.includes("MISSING_KEY");
+      
+      setErrorMsg({
+        title: isAr ? (isMissingKey ? "خطأ في المفتاح" : "فشل التحليل") : (isMissingKey ? "API Key Issue" : "Analysis Failed"),
+        detail: isAr 
+          ? (isMissingKey ? "مفتاح API غير مفعّل في إعدادات Vercel." : `عذراً: ${err.message || 'حدث خطأ غير معروف'}`)
+          : (isMissingKey ? "API Key is not configured in Vercel settings." : `Error: ${err.message || 'Internal processing error'}`)
+      });
     }
   };
 
@@ -289,9 +286,9 @@ const Hero: React.FC = () => {
                          <AlertCircle size={44} className="text-red-500" />
                          <div className="space-y-4">
                             <h4 className="text-3xl font-serif font-bold text-red-500 italic">{errorMsg.title}</h4>
-                            <p className="text-white/40 text-[10px] uppercase tracking-widest">{errorMsg.detail}</p>
+                            <p className="text-white/40 text-[10px] uppercase tracking-widest px-4">{errorMsg.detail}</p>
                          </div>
-                         <button onClick={handleReset} className="px-10 py-5 bg-white/5 text-white rounded-2xl text-[9px] font-black uppercase tracking-[0.4em] border border-white/10">
+                         <button onClick={handleReset} className="px-10 py-5 bg-white/5 text-white rounded-2xl text-[9px] font-black uppercase tracking-[0.4em] border border-white/10 hover:bg-white/10 transition-all">
                             {isAr ? 'تلقيم عينة جديدة' : 'LOAD NEW SPECIMEN'}
                          </button>
                       </div>
@@ -315,12 +312,12 @@ const Hero: React.FC = () => {
                             "{lastAnalysisResult.personalizedAdvice}"
                          </div>
                          <div className="flex gap-2">
-                            <button onClick={handleReset} className="flex-1 py-4 bg-brand-primary text-brand-dark rounded-2xl flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-widest">
+                            <button onClick={handleReset} className="flex-1 py-4 bg-brand-primary text-brand-dark rounded-2xl flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-widest hover:scale-105 transition-all">
                                <Camera size={14} /> {isAr ? 'فحص جديد' : 'NEW SCAN'}
                             </button>
                             <button 
                               onClick={handleShare}
-                              className={`flex-1 py-4 rounded-2xl flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-widest border border-white/5 
+                              className={`flex-1 py-4 rounded-2xl flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-widest border border-white/5 hover:scale-105 transition-all
                                 ${shareStatus === 'shared' ? 'bg-emerald-500 text-brand-dark' : 'bg-white/5 text-white'}`}
                             >
                                {shareStatus === 'shared' ? <Check size={14} /> : (navigator.share ? <Share2 size={14} /> : <Copy size={14} />)}
@@ -335,22 +332,6 @@ const Hero: React.FC = () => {
                     <span className="text-[6px] font-black text-white/10 uppercase tracking-[0.5em]">SYSTEM_STABLE_VERIFIED</span>
                  </div>
               </div>
-           </div>
-        </div>
-
-        {/* Mobile Protocol Controls */}
-        <div className="lg:hidden w-full pb-6 pt-2 z-20">
-           <div className="grid grid-cols-4 gap-2">
-              {(Object.keys(personaConfigs) as BioPersona[]).map((id) => {
-                const p = personaConfigs[id];
-                const isActive = currentPersona === id;
-                return (
-                  <button key={id} onClick={() => setCurrentPersona(id)} className={`flex flex-col items-center justify-center p-3 rounded-[20px] border transition-all ${isActive ? `${p.color} ${p.border} text-brand-dark scale-105 shadow-glow` : 'bg-white/5 border-white/5 text-white/30'}`}>
-                    <div className="mb-1">{p.icon}</div>
-                    <span className="text-[7px] font-black uppercase leading-none">{p.label}</span>
-                  </button>
-                );
-              })}
            </div>
         </div>
 
