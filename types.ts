@@ -54,6 +54,12 @@ export interface FeedbackEntry {
   timestamp: number;
 }
 
+export interface BioWarning {
+  text: string;
+  riskLevel: 'low' | 'medium' | 'high';
+  type: string;
+}
+
 export interface MealAnalysisResult {
   ingredients: { name: string; calories: number }[];
   totalCalories: number;
@@ -67,7 +73,7 @@ export interface MealAnalysisResult {
   personalizedAdvice: string;
   timestamp?: string;
   imageUrl?: string;
-  warnings?: string[]; // New: Specialized warnings for personas
+  warnings?: (string | BioWarning)[];
 }
 
 export enum SectionId {
