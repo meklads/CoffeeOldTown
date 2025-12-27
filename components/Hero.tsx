@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { RotateCcw, Baby, HeartPulse, Zap, Camera, Utensils, Share2, AlertTriangle, Info, Download, FileText, RefreshCw, Activity, PieChart, Sparkles } from 'lucide-react';
+import { RotateCcw, Baby, HeartPulse, Zap, Camera, Utensils, Share2, Activity, Sparkles, AlertCircle, RefreshCw, UploadCloud, FileSearch, Check } from 'lucide-react';
 import { SectionId, BioPersona } from '../types.ts';
 import { useApp } from '../context/AppContext.tsx';
 import { analyzeMealImage } from '../services/geminiService.ts';
@@ -8,23 +8,23 @@ import { analyzeMealImage } from '../services/geminiService.ts';
 const Hero: React.FC = () => {
   const { incrementScans, setLastAnalysisResult, lastAnalysisResult, currentPersona, setCurrentPersona, language } = useApp();
   const [image, setImage] = useState<string | null>(null);
-  const [status, setStatus] = useState<'idle' | 'loading' | 'error' | 'success'>('idle');
+  const [status, setStatus] = useState<'idle' | 'processing' | 'loading' | 'error' | 'success'>('idle');
   const [progress, setProgress] = useState(0);
   const [loadingStep, setLoadingStep] = useState('');
-  const [showScoreInfo, setShowScoreInfo] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<{title: string, detail: string} | null>(null);
+  const [shareStatus, setShareStatus] = useState<'idle' | 'shared' | 'error'>('idle');
   
   const isAr = language === 'ar';
   const fileInputRef = useRef<HTMLInputElement>(null);
   const progressIntervalRef = useRef<number | null>(null);
 
-  const personaConfigs: Record<BioPersona, { label: string, icon: React.ReactNode, slogan: string, color: string, glow: string, border: string, accent: string }> = {
+  const personaConfigs: Record<BioPersona, { label: string, icon: React.ReactNode, slogan: string, color: string, border: string, accent: string }> = {
     GENERAL: { 
       label: isAr ? 'عام' : 'GENERAL', 
       icon: <Utensils size={14} />, 
       slogan: isAr ? 'يومي' : 'Daily',
       color: 'bg-[#C2A36B]',
       accent: 'text-[#C2A36B]',
-      glow: 'shadow-[0_0_20px_rgba(194,163,107,0.4)]',
       border: 'border-[#C2A36B]'
     },
     PREGNANCY: { 
@@ -33,7 +33,6 @@ const Hero: React.FC = () => {
       slogan: isAr ? 'نمو' : 'Growth',
       color: 'bg-[#E5C1CD]',
       accent: 'text-[#E5C1CD]',
-      glow: 'shadow-[0_0_20px_rgba(229,193,205,0.4)]',
       border: 'border-[#E5C1CD]'
     },
     DIABETIC: { 
@@ -42,7 +41,6 @@ const Hero: React.FC = () => {
       slogan: isAr ? 'توازن' : 'Sync',
       color: 'bg-[#64B5F6]',
       accent: 'text-[#64B5F6]',
-      glow: 'shadow-[0_0_20px_rgba(100,181,246,0.4)]',
       border: 'border-[#64B5F6]'
     },
     ATHLETE: { 
@@ -51,48 +49,45 @@ const Hero: React.FC = () => {
       slogan: isAr ? 'أداء' : 'Power',
       color: 'bg-[#FF7043]',
       accent: 'text-[#FF7043]',
-      glow: 'shadow-[0_0_20px_rgba(255,112,67,0.4)]',
       border: 'border-[#FF7043]'
     }
   };
 
   const activeConfig = personaConfigs[currentPersona];
 
-  // إصلاح: إعادة تعيين السكانر بالكامل عند تغيير البروتوكول لضمان استقرار الواجهة
-  useEffect(() => {
-    handleReset();
-  }, [currentPersona]);
-
   const handleReset = () => {
     setImage(null);
     setStatus('idle');
     setProgress(0);
     setLastAnalysisResult(null);
-    if (progressIntervalRef.current) {
-      clearInterval(progressIntervalRef.current);
-    }
+    setErrorMsg(null);
+    setShareStatus('idle');
+    if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
   };
 
-  const handlePersonaSelect = (id: BioPersona) => {
-    if (currentPersona === id) return;
-    setCurrentPersona(id);
-  };
+  useEffect(() => {
+    if (status === 'success') {
+      setStatus('idle');
+      setLastAnalysisResult(null);
+    }
+  }, [currentPersona]);
 
   const handleAnalyze = async () => {
     if (!image || status === 'loading') return;
     setStatus('loading');
     setProgress(0);
+    setErrorMsg(null);
     
     const steps = isAr 
-      ? ['تنشيط...', 'مسح جزيئي...', 'تحليل حيوي...', 'تقرير...'] 
-      : ['Activating...', 'Molecular Scan...', 'Bio-Analysis...', 'Report...'];
+      ? ['تنشيط النظام...', 'مسح جزيئي عميق...', 'تحليل بصمة الأيض...', 'توليد التقرير السريري...'] 
+      : ['Activating System...', 'Molecular Deep Scan...', 'Metabolic Analysis...', 'Synthesizing Report...'];
     
     let currentStepIdx = 0;
     setLoadingStep(steps[0]);
 
     progressIntervalRef.current = window.setInterval(() => {
       setProgress(prev => {
-        const next = prev + Math.floor(Math.random() * 5) + 2;
+        const next = prev + Math.floor(Math.random() * 3) + 1;
         if (next >= 99) return 99;
         const stepIdx = Math.floor((next / 100) * steps.length);
         if (stepIdx !== currentStepIdx && stepIdx < steps.length) {
@@ -101,7 +96,7 @@ const Hero: React.FC = () => {
         }
         return next;
       });
-    }, 120);
+    }, 150);
 
     try {
       const result = await analyzeMealImage(image, {
@@ -118,22 +113,68 @@ const Hero: React.FC = () => {
         setLastAnalysisResult({ ...result, timestamp: new Date().toLocaleString(), imageUrl: image });
         incrementScans(result);
         setStatus('success');
+      } else {
+        throw new Error("EMPTY_RESULT");
       }
     } catch (err: any) {
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       setStatus('error');
+      
+      if (err.message === "MISSING_KEY") {
+        setErrorMsg({
+          title: isAr ? "خطأ في الاتصال" : "Connection Error",
+          detail: isAr ? "مفتاح الـ API غير متصل بالنظام. يرجى تزويد مفتاح صالح." : "The API key is missing or invalid. Please check your credentials."
+        });
+      } else {
+        setErrorMsg({
+          title: isAr ? "فشل المسح الضوئي" : "Scan Synthesis Failed",
+          detail: isAr ? "لم نتمكن من تحليل العينة. قد تكون الصورة غير واضحة أو خالية من المكونات الغذائية." : "Unable to analyze specimen. The image may be too blurry or lacks identifiable nutrients."
+        });
+      }
+    }
+  };
+
+  const handleShare = async () => {
+    if (!lastAnalysisResult) return;
+
+    const shareText = isAr 
+      ? `نتائج فحص الوجبة من مختبر أولد تاون:\n📊 الملخص: ${lastAnalysisResult.summary}\n🔥 السعرات: ${lastAnalysisResult.totalCalories}\n💡 نصيحة الخبير: ${lastAnalysisResult.personalizedAdvice}`
+      : `Meal Analysis Result from Old Town Lab:\n📊 Summary: ${lastAnalysisResult.summary}\n🔥 Calories: ${lastAnalysisResult.totalCalories}\n💡 Expert Advice: ${lastAnalysisResult.personalizedAdvice}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: isAr ? 'تقرير فحص الوجبة' : 'Meal Scan Report',
+          text: shareText,
+          url: window.location.href,
+        });
+        setShareStatus('shared');
+      } catch (err) {
+        console.log('Share canceled or failed', err);
+      }
+    } else {
+      // Fallback to Clipboard
+      try {
+        await navigator.clipboard.writeText(shareText);
+        setShareStatus('shared');
+        setTimeout(() => setShareStatus('idle'), 3000);
+      } catch (err) {
+        setShareStatus('error');
+      }
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setStatus('processing');
       const reader = new FileReader();
       reader.onloadend = () => { 
-        setImage(reader.result as string);
-        setStatus('idle'); 
-        setProgress(0);
-        setLastAnalysisResult(null);
+        setTimeout(() => {
+          setImage(reader.result as string);
+          setStatus('idle'); 
+          setProgress(0);
+        }, 800);
       };
       reader.readAsDataURL(file);
     }
@@ -143,11 +184,10 @@ const Hero: React.FC = () => {
     <section id={SectionId.PHASE_01_SCAN} className="relative h-screen bg-brand-dark flex items-center justify-center overflow-hidden pt-16 lg:pt-0">
       <div className="max-w-7xl mx-auto px-4 lg:px-6 w-full h-full flex flex-col lg:flex-row lg:items-center lg:gap-20">
         
-        {/* المحتوى النصي (العنوان) */}
+        {/* Branding Column */}
         <div className="lg:w-[45%] flex flex-col justify-start lg:justify-center py-4 lg:py-6 animate-fade-in z-20 space-y-4 lg:space-y-12">
-          
           <div className="space-y-2 lg:space-y-6">
-            <div className="hidden lg:inline-flex items-center gap-3 px-3 py-1 bg-white/5 rounded-full border border-white/10 transition-colors duration-1000">
+            <div className="hidden lg:inline-flex items-center gap-3 px-3 py-1 bg-white/5 rounded-full border border-white/10 transition-all duration-1000">
               <div className={`w-1.5 h-1.5 rounded-full animate-pulse transition-colors duration-1000 ${activeConfig.color}`} />
               <span className="text-[9px] font-black uppercase tracking-[0.4em] text-white/50">Module v5.5 Multi-Proto</span>
             </div>
@@ -162,7 +202,6 @@ const Hero: React.FC = () => {
             </div>
           </div>
 
-          {/* أزرار البروتوكول (Desktop) */}
           <div className="hidden lg:grid grid-cols-2 gap-4 max-w-md">
             {(Object.keys(personaConfigs) as BioPersona[]).map((id) => {
               const p = personaConfigs[id];
@@ -170,17 +209,18 @@ const Hero: React.FC = () => {
               return (
                 <button
                   key={id}
-                  onClick={() => handlePersonaSelect(id)}
-                  className={`group p-6 rounded-[35px] border transition-all duration-500 text-left relative overflow-hidden flex flex-col justify-between h-[140px]
-                    ${isActive ? `${p.color} ${p.border} text-brand-dark ${p.glow} scale-[1.02]` : 'bg-white/5 border-white/5 text-white/40 hover:bg-white/10'}`}
+                  type="button"
+                  onClick={() => setCurrentPersona(id)}
+                  className={`group p-6 rounded-[35px] border transition-all duration-500 text-left relative overflow-hidden flex flex-col justify-between h-[140px] cursor-pointer active:scale-95
+                    ${isActive ? `${p.color} ${p.border} text-brand-dark shadow-[0_0_30px_rgba(0,0,0,0.3)] scale-[1.02]` : 'bg-white/5 border-white/5 text-white/40 hover:bg-white/10'}`}
                 >
-                  <div className="flex justify-between items-start">
+                  <div className="flex justify-between items-start pointer-events-none">
                      <span className={`text-[7px] font-black uppercase tracking-widest block transition-colors duration-500 ${isActive ? 'text-brand-dark/60' : 'opacity-50 group-hover:text-white/60'}`}>PROTO</span>
                      <div className={`transition-all duration-500 ${isActive ? 'opacity-100 text-brand-dark' : 'opacity-20 group-hover:opacity-100'}`}>
                         {p.icon}
                      </div>
                   </div>
-                  <div className="mt-auto">
+                  <div className="mt-auto pointer-events-none">
                     <span className="text-lg font-sans font-bold block leading-none mb-1">{p.label}</span>
                     <span className={`text-[9px] italic font-medium block transition-colors duration-500 ${isActive ? 'text-brand-dark/50' : 'opacity-30'}`}>{p.slogan}</span>
                   </div>
@@ -190,135 +230,143 @@ const Hero: React.FC = () => {
           </div>
         </div>
         
-        {/* السكانر الاحترافي */}
+        {/* The Diagnostic Scanner Unit */}
         <div className="flex-1 lg:flex-none lg:w-[55%] w-full flex flex-col items-center lg:items-end justify-center relative z-10 px-2 lg:px-0">
-           <div className={`w-full max-w-[420px] lg:max-w-[480px] aspect-[4/5] bg-[#0A0908] rounded-[40px] lg:rounded-[60px] border transition-all duration-1000 ${activeConfig.border} shadow-[0_40px_80px_-20px_rgba(0,0,0,1)] flex flex-col relative overflow-hidden group`}>
-              
+           <div 
+             key={currentPersona}
+             className={`w-full max-w-[420px] lg:max-w-[480px] aspect-[4/5] bg-[#0A0908] rounded-[40px] lg:rounded-[60px] border transition-all duration-700 ${activeConfig.border} shadow-[0_40px_80px_-20px_rgba(0,0,0,1)] flex flex-col relative overflow-hidden animate-fade-in`}
+           >
               <div className="flex-1 m-2 lg:m-4 rounded-[30px] lg:rounded-[45px] bg-[#050505] overflow-hidden flex flex-col border border-white/5">
                  
+                 {/* Unit Status Bar */}
                  <div className="p-4 lg:p-6 flex justify-between items-center bg-white/[0.02] border-b border-white/5 shrink-0">
                     <div className="flex items-center gap-2">
                        <div className={`w-1 h-1 rounded-full animate-pulse transition-colors duration-1000 ${activeConfig.color}`} />
                        <span className="text-[7px] font-black text-white/30 uppercase tracking-[0.4em]">
-                         {status === 'loading' ? (isAr ? 'جاري الفحص...' : 'SCANNING') : 'Interface_v5'}
+                         {status === 'loading' ? (isAr ? 'جاري الفحص السريري...' : 'CLINICAL SCAN ACTIVE') : 'DIAGNOSTIC_INTERFACE_v5'}
                        </span>
                     </div>
-                    {(image || lastAnalysisResult) && (
-                      <button onClick={handleReset} className="text-white/10 hover:text-brand-primary transition-all">
-                         <RotateCcw size={12} />
+                    {(image || status !== 'idle') && (
+                      <button onClick={handleReset} className="text-white/10 hover:text-brand-primary transition-all flex items-center gap-2 group/reset">
+                         <span className="text-[7px] font-black tracking-widest uppercase group-hover:text-brand-primary">{isAr ? 'إعادة ضبط' : 'RESET'}</span>
+                         <RotateCcw size={10} className="group-hover:rotate-180 transition-transform duration-500" />
                       </button>
                     )}
                  </div>
 
-                 <div className="flex-1 overflow-y-auto no-scrollbar scroll-smooth p-4 lg:p-8 flex flex-col justify-center">
+                 <div className="flex-1 overflow-y-auto no-scrollbar scroll-smooth p-4 lg:p-8 flex flex-col justify-center relative">
+                    
                     {status === 'idle' && !image ? (
-                      <div onClick={() => fileInputRef.current?.click()} className="h-full flex flex-col items-center justify-center text-center space-y-6 lg:space-y-8 cursor-pointer group/up py-4 animate-fade-in">
-                         <div className={`w-14 h-14 lg:w-20 lg:h-20 bg-white/5 border border-dashed border-white/10 rounded-full flex items-center justify-center transition-all duration-700 group-hover/up:${activeConfig.border} group-hover/up:${activeConfig.accent}`}>
-                            <Camera size={24} className="lg:hidden" strokeWidth={1} />
-                            <Camera size={32} className="hidden lg:block" strokeWidth={1} />
+                      <div 
+                        onClick={() => fileInputRef.current?.click()} 
+                        className="h-full flex flex-col items-center justify-center text-center space-y-6 lg:space-y-10 cursor-pointer group/up py-4 animate-fade-in relative"
+                      >
+                         <div className={`relative w-32 h-32 lg:w-44 lg:h-44 bg-white/[0.03] border-2 border-dashed border-white/10 rounded-[50px] flex items-center justify-center transition-all duration-700 group-hover/up:${activeConfig.border} group-hover/up:bg-white/[0.06] group-hover/up:shadow-glow group-hover/up:-translate-y-2`}>
+                            <div className="absolute inset-3 border border-white/5 rounded-[40px] animate-pulse-slow" />
+                            <div className={`transition-all duration-700 ${activeConfig.accent} group-hover/up:scale-125`}>
+                              <UploadCloud size={48} strokeWidth={1} />
+                            </div>
+                         </div>
+                         <div className="space-y-4 max-w-[280px]">
+                            <h4 className="text-2xl lg:text-3xl font-serif font-bold italic text-white/80 tracking-tight leading-none">{isAr ? 'تلقيم العينة البيولوجية' : 'Insert Biometric Sample'}</h4>
+                            <p className="text-white/40 text-[10px] leading-relaxed italic">{isAr ? 'قم برفع صورة الوجبة لبدء التحليل العصبي العميق.' : 'Upload your meal imagery to initiate deep neural analysis.'}</p>
+                         </div>
+                      </div>
+                    ) : status === 'processing' ? (
+                      <div className="h-full flex flex-col items-center justify-center space-y-8 animate-fade-in text-center">
+                         <div className="relative">
+                            <div className={`w-20 h-20 rounded-full border-2 border-t-transparent animate-spin ${activeConfig.accent} ${activeConfig.border}`} />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                               <FileSearch size={24} className={activeConfig.accent} />
+                            </div>
                          </div>
                          <div className="space-y-2">
-                            <h4 className="text-lg lg:text-2xl font-serif font-bold italic text-white/60 tracking-tight">{isAr ? 'تلقيم العينة' : 'Insert Specimen'}</h4>
-                            <p className={`text-[8px] lg:text-[9px] font-black uppercase tracking-[0.6em] transition-colors duration-1000 ${activeConfig.accent}`}>{isAr ? 'اضغط للبدء' : 'SCAN SAMPLE'}</p>
+                            <h5 className="text-lg font-serif italic text-white/60">{isAr ? 'معالجة جزيئات الصورة...' : 'Processing Specimen Atoms...'}</h5>
                          </div>
                       </div>
                     ) : status === 'idle' && image ? (
-                      <div className="h-full flex flex-col items-center justify-center space-y-4 lg:space-y-8 animate-fade-in">
-                         <div className="relative aspect-square w-full max-w-[180px] lg:max-w-[240px] rounded-[30px] lg:rounded-[40px] overflow-hidden border border-white/5 shadow-2xl">
-                            <img src={image} className="w-full h-full object-cover grayscale-[0.2]" alt="Sample" />
-                            <div className={`absolute top-0 left-0 w-full h-[2px] shadow-glow animate-scan transition-colors duration-1000 ${activeConfig.color}`} />
-                            <div className={`absolute bottom-3 lg:bottom-4 left-1/2 -translate-x-1/2 bg-brand-dark/90 backdrop-blur-md px-3 py-1 lg:py-1.5 rounded-full border border-white/10 flex items-center gap-2 whitespace-nowrap`}>
-                               <span className="text-[7px] lg:text-[8px] font-black text-white uppercase tracking-widest">{currentPersona}</span>
-                            </div>
+                      <div className="h-full flex flex-col items-center justify-center space-y-6 lg:space-y-10 animate-fade-in">
+                         <div className="relative aspect-square w-full max-w-[200px] lg:max-w-[300px] rounded-[50px] overflow-hidden border-2 border-white/10 shadow-4xl group/img bg-zinc-900">
+                            <img src={image} className="w-full h-full object-cover transition-all duration-700 scale-100 group-hover/img:scale-105" alt="Sample" />
+                            <div className={`absolute top-0 left-0 w-full h-[3px] shadow-glow animate-scan transition-colors duration-1000 ${activeConfig.color}`} />
                          </div>
-                         <button onClick={handleAnalyze} className={`w-full py-4 lg:py-5 text-brand-dark rounded-full font-black text-[9px] lg:text-[10px] uppercase tracking-[0.5em] shadow-glow transition-all flex items-center justify-center gap-3 duration-1000 ${activeConfig.color}`}>
-                            <Zap size={14} /> {isAr ? 'بدء الفحص' : 'INITIATE'}
-                         </button>
+                         <div className="w-full px-6 space-y-4">
+                            <button 
+                              onClick={handleAnalyze} 
+                              className={`w-full py-5 lg:py-6 text-brand-dark rounded-3xl font-black text-[10px] lg:text-[11px] uppercase tracking-[0.6em] shadow-glow transition-all flex items-center justify-center gap-4 duration-500 ${activeConfig.color} hover:scale-[1.02] hover:-translate-y-1 hover:shadow-2xl hover:shadow-brand-primary/20 active:scale-[0.98] active:bg-gradient-to-r active:from-brand-primary active:to-emerald-500 active:text-white group/btn-scan`}
+                            >
+                               <Zap size={16} fill="currentColor" className="transition-transform duration-500 group-hover/btn-scan:scale-125" /> 
+                               {isAr ? 'بدء الفحص الجزيئي' : 'INITIATE MOLECULAR SCAN'}
+                            </button>
+                            <p className="text-[7px] text-white/20 text-center uppercase tracking-[0.3em]">{isAr ? 'معايرة النظام للبروتوكول:' : 'System calibrated for protocol:'} {currentPersona}</p>
+                         </div>
                       </div>
                     ) : status === 'loading' ? (
-                      <div className="h-full flex flex-col items-center justify-center space-y-6 lg:space-y-10 animate-fade-in py-6">
-                         <div className="relative w-24 h-24 lg:w-40 lg:h-40">
+                      <div className="h-full flex flex-col items-center justify-center space-y-8 lg:space-y-12 animate-fade-in py-6">
+                         <div className="relative w-36 h-36 lg:w-52 lg:h-52">
                             <svg className="w-full h-full -rotate-90">
-                               <circle cx="50%" cy="50%" r="45%" stroke="currentColor" strokeWidth="1" fill="transparent" className="text-white/5" />
-                               <circle cx="50%" cy="50%" r="45%" stroke="currentColor" strokeWidth="6" lg:strokeWidth="8" fill="transparent" strokeDasharray="283" strokeDashoffset={283 - (283 * progress / 100)} className={`transition-all duration-500 ${activeConfig.accent}`} />
+                               <circle cx="50%" cy="50%" r="42%" stroke="currentColor" strokeWidth="1" fill="transparent" className="text-white/5" />
+                               <circle cx="50%" cy="50%" r="42%" stroke="currentColor" strokeWidth="6" lg:strokeWidth="10" fill="transparent" strokeDasharray="283" strokeDashoffset={283 - (283 * progress / 100)} className={`transition-all duration-500 ${activeConfig.accent} drop-shadow-[0_0_15px_rgba(194,163,107,0.5)]`} />
                             </svg>
-                            <div className="absolute inset-0 flex items-center justify-center font-sans font-bold text-2xl lg:text-4xl text-white">{progress}%</div>
+                            <div className="absolute inset-0 flex flex-col items-center justify-center">
+                               <span className="text-4xl lg:text-6xl font-sans font-bold text-white tracking-tighter">{progress}%</span>
+                               <Activity size={18} className={`mt-2 ${activeConfig.accent} animate-pulse`} />
+                            </div>
                          </div>
-                         <h3 className={`font-black uppercase tracking-[0.5em] animate-pulse text-[8px] lg:text-[9px] transition-colors duration-1000 ${activeConfig.accent}`}>{loadingStep}</h3>
+                         <div className="text-center space-y-3 px-8">
+                            <h3 className={`font-black uppercase tracking-[0.6em] animate-pulse text-[9px] lg:text-[11px] transition-colors duration-1000 ${activeConfig.accent}`}>{loadingStep}</h3>
+                         </div>
+                      </div>
+                    ) : status === 'error' && errorMsg ? (
+                      <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-10 animate-fade-in">
+                         <div className="relative">
+                            <div className="w-24 h-24 bg-red-500/10 rounded-[40px] flex items-center justify-center text-red-500 relative z-10 border border-red-500/20">
+                               <AlertCircle size={44} strokeWidth={1} />
+                            </div>
+                         </div>
+                         <div className="space-y-4 max-w-[260px]">
+                            <h4 className="text-3xl font-serif font-bold text-red-500 italic leading-none">{errorMsg.title}</h4>
+                            <p className="text-white/40 text-[10px] font-medium leading-relaxed uppercase tracking-widest">{errorMsg.detail}</p>
+                         </div>
+                         <button 
+                           onClick={handleReset} 
+                           className="px-10 py-5 bg-white/5 hover:bg-white/10 text-white rounded-2xl text-[9px] font-black uppercase tracking-[0.4em] border border-white/10 transition-all flex items-center gap-3 group/error-btn"
+                         >
+                            <RotateCcw size={14} className="group-hover:rotate-180 transition-transform duration-500" /> {isAr ? 'تلقيم عينة جديدة' : 'LOAD NEW SPECIMEN'}
+                         </button>
                       </div>
                     ) : status === 'success' && lastAnalysisResult ? (
-                      <div className="w-full space-y-4 lg:space-y-6 animate-fade-in py-2 overflow-y-auto no-scrollbar">
-                         {/* Header Result */}
-                         <div className="space-y-1 lg:space-y-2 translate-y-4 animate-fade-in [animation-fill-mode:forwards]">
-                            <div className="flex items-center gap-2">
-                              <span className={`text-[7px] lg:text-[8px] font-black uppercase tracking-widest transition-colors duration-1000 ${activeConfig.accent}`}>{isAr ? 'التقرير الأيضي' : 'BIO-REPORT'}</span>
-                            </div>
+                      <div className="w-full space-y-4 lg:space-y-6 animate-fade-in py-2 overflow-y-auto no-scrollbar h-full flex flex-col justify-center">
+                         <div className="space-y-1 lg:space-y-2">
+                            <span className={`text-[7px] lg:text-[8px] font-black uppercase tracking-widest transition-colors duration-1000 ${activeConfig.accent}`}>{isAr ? 'النتائج السريرية المستخلصة' : 'BIO-REPORT: SYNTHESIZED_DATA'}</span>
                             <h2 className="text-sm lg:text-xl font-sans font-bold text-white tracking-tight leading-snug">{lastAnalysisResult.summary}</h2>
                          </div>
-                         
-                         {/* Dynamic Stats Grid */}
-                         <div className="grid grid-cols-2 gap-2 lg:gap-4 translate-y-4 animate-fade-in [animation-delay:200ms] [animation-fill-mode:forwards]">
-                            <div className="bg-white/5 p-3 lg:p-5 rounded-[20px] lg:rounded-[30px] border border-white/5 group hover:bg-white/[0.08] transition-all">
-                               <span className="text-[6px] lg:text-[7px] font-black uppercase text-white/30 block mb-1 lg:mb-2 tracking-widest flex items-center gap-1">
-                                 KCAL <Activity size={8} />
-                               </span>
-                               <div className="text-xl lg:text-3xl font-sans font-bold text-white tracking-tighter">{lastAnalysisResult.totalCalories}</div>
+                         <div className="grid grid-cols-2 gap-2 lg:gap-4">
+                            <div className="bg-white/5 p-4 lg:p-6 rounded-[25px] lg:rounded-[35px] border border-white/5 group hover:bg-white/[0.08] transition-all">
+                               <span className="text-[6px] lg:text-[7px] font-black uppercase text-white/30 block mb-1 tracking-[0.3em]">ENERGY_LOAD_KCAL</span>
+                               <div className="text-2xl lg:text-4xl font-sans font-bold text-white tracking-tighter">{lastAnalysisResult.totalCalories}</div>
                             </div>
-                            
-                            {/* Interactive Health Score Badge */}
-                            <div 
-                              className="relative bg-white/5 p-3 lg:p-5 rounded-[20px] lg:rounded-[30px] border border-white/5 group cursor-help hover:bg-white/[0.08] transition-all"
-                              onMouseEnter={() => setShowScoreInfo(true)}
-                              onMouseLeave={() => setShowScoreInfo(false)}
-                              onClick={() => setShowScoreInfo(!showScoreInfo)}
-                            >
-                               <div className="flex justify-between items-start mb-1 lg:mb-2">
-                                  <span className="text-[6px] lg:text-[7px] font-black uppercase text-white/30 tracking-widest flex items-center gap-1">
-                                    SCORE <Info size={8} className={`${activeConfig.accent}`} />
-                                  </span>
+                            <div className="bg-white/5 p-4 lg:p-6 rounded-[25px] lg:rounded-[35px] border border-white/5 group hover:bg-white/[0.08] transition-all relative">
+                               <span className="text-[6px] lg:text-[7px] font-black uppercase text-white/30 block mb-1 tracking-[0.3em]">VITALITY_INDEX</span>
+                               <div className="text-2xl lg:text-4xl font-sans font-bold text-white tracking-tighter flex items-center gap-2">
+                                  {lastAnalysisResult.healthScore}%
                                </div>
-                               <div className="text-xl lg:text-3xl font-sans font-bold text-white tracking-tighter flex items-center gap-2">
-                                 {lastAnalysisResult.healthScore}%
-                                 <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${lastAnalysisResult.healthScore > 70 ? 'bg-emerald-500' : 'bg-brand-primary'}`} />
-                               </div>
-
-                               {/* Interactive Diagnostic Tooltip */}
-                               {showScoreInfo && (
-                                 <div className="absolute bottom-full left-0 right-0 mb-3 z-50 animate-fade-in">
-                                    <div className="bg-[#1A1A1A] border border-white/10 p-4 rounded-2xl shadow-4xl backdrop-blur-xl">
-                                       <span className="text-[6px] font-black uppercase tracking-[0.4em] text-brand-primary block mb-2">{isAr ? 'معايرة النقاط' : 'SCORE_CALIBRATION'}</span>
-                                       <p className="text-[9px] text-white/60 leading-relaxed italic">
-                                         {isAr 
-                                           ? `تم حساب هذه النتيجة بناءً على كثافة العناصر الغذائية وتأثير الجلوكوز لبروتوكول ${currentPersona}.` 
-                                           : `Calculated synthesis of nutrient density & glycemic impact calibrated for the ${currentPersona} protocol.`}
-                                       </p>
-                                       <div className="mt-2 h-1 bg-white/5 rounded-full overflow-hidden">
-                                          <div className={`h-full ${activeConfig.color} transition-all duration-1000`} style={{ width: `${lastAnalysisResult.healthScore}%` }} />
-                                       </div>
-                                    </div>
-                                 </div>
-                               )}
                             </div>
                          </div>
-
-                         {/* Advice Section */}
-                         <div className={`p-4 lg:p-6 bg-white/5 border border-white/10 rounded-[25px] lg:rounded-[35px] relative overflow-hidden translate-y-4 animate-fade-in [animation-delay:400ms] [animation-fill-mode:forwards] group hover:border-brand-primary/20 transition-all`}>
-                            <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-100 transition-opacity">
-                               <Sparkles size={12} className={activeConfig.accent} />
-                            </div>
-                            <p className="text-white/70 text-[10px] lg:text-xs font-sans italic leading-relaxed">"{lastAnalysisResult.personalizedAdvice}"</p>
+                         <div className="p-5 lg:p-8 bg-white/5 border border-white/10 rounded-[30px] lg:rounded-[45px] relative overflow-hidden group">
+                            <p className="text-white/80 text-[10px] lg:text-sm font-sans italic leading-relaxed font-medium">"{lastAnalysisResult.personalizedAdvice}"</p>
                          </div>
-
-                         {/* Action Buttons */}
-                         <div className="flex gap-2 pt-2 translate-y-4 animate-fade-in [animation-delay:600ms] [animation-fill-mode:forwards]">
-                            <button 
-                              onClick={handleReset}
-                              className={`flex-1 py-4 bg-brand-primary text-brand-dark hover:bg-white transition-all rounded-[15px] lg:rounded-[25px] flex items-center justify-center gap-2 text-[8px] font-black uppercase tracking-widest border border-brand-primary/20 shadow-glow group`}
-                            >
-                               <Camera size={12} className="group-hover:scale-110 transition-transform" /> {isAr ? 'فحص جديد' : 'SCAN AGAIN'}
+                         <div className="flex gap-2 pt-2">
+                            <button onClick={handleReset} className={`flex-1 py-4 lg:py-5 bg-brand-primary text-brand-dark rounded-2xl lg:rounded-[25px] flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-widest border border-brand-primary/20 shadow-glow hover:bg-white transition-all`}>
+                               <Camera size={14} /> {isAr ? 'فحص جديد' : 'NEW SCAN'}
                             </button>
-                            <button className={`flex-1 py-4 bg-white/5 hover:bg-white/10 text-white transition-all rounded-[15px] lg:rounded-[25px] flex items-center justify-center gap-2 text-[8px] font-black uppercase tracking-widest border border-white/5 group`}>
-                               <Share2 size={12} className="group-hover:scale-110 transition-transform" /> {isAr ? 'مشاركة' : 'SHARE REPORT'}
+                            <button 
+                              onClick={handleShare}
+                              className={`flex-1 py-4 lg:py-5 transition-all rounded-2xl lg:rounded-[25px] flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-widest border border-white/5 
+                                ${shareStatus === 'shared' ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/50' : 'bg-white/5 hover:bg-white/10 text-white'}`}
+                            >
+                               {shareStatus === 'shared' ? <Check size={14} /> : <Share2 size={14} />}
+                               {shareStatus === 'shared' ? (isAr ? 'تم النسخ/المشاركة' : 'SHARED/COPIED') : (isAr ? 'مشاركة' : 'SHARE')}
                             </button>
                          </div>
                       </div>
@@ -326,16 +374,13 @@ const Hero: React.FC = () => {
                  </div>
 
                  <div className="p-3 lg:p-4 border-t border-white/5 flex justify-between items-center bg-white/[0.01] shrink-0">
-                    <span className="text-[6px] lg:text-[7px] font-black text-white/20 uppercase tracking-[0.5em]">SYSTEM_STABLE</span>
-                    <div className="flex gap-1">
-                       <div className={`w-1 h-1 rounded-full transition-colors duration-1000 ${activeConfig.color}`} />
-                    </div>
+                    <span className="text-[6px] lg:text-[7px] font-black text-white/10 uppercase tracking-[0.5em]">SYSTEM_STABLE_VERIFIED</span>
                  </div>
               </div>
            </div>
         </div>
 
-        {/* أزرار البروتوكول (Mobile) */}
+        {/* Mobile Protocol Controls */}
         <div className="lg:hidden w-full pb-6 pt-2 z-20">
            <div className="grid grid-cols-4 gap-2">
               {(Object.keys(personaConfigs) as BioPersona[]).map((id) => {
@@ -344,12 +389,13 @@ const Hero: React.FC = () => {
                 return (
                   <button
                     key={id}
-                    onClick={() => handlePersonaSelect(id)}
-                    className={`flex flex-col items-center justify-center p-3 rounded-[20px] border transition-all duration-500
+                    type="button"
+                    onClick={() => setCurrentPersona(id)}
+                    className={`flex flex-col items-center justify-center p-3 rounded-[20px] border transition-all duration-500 cursor-pointer active:scale-95
                       ${isActive ? `${p.color} ${p.border} text-brand-dark scale-105 shadow-glow` : 'bg-white/5 border-white/5 text-white/30'}`}
                   >
-                    <div className="mb-1">{p.icon}</div>
-                    <span className="text-[7px] font-black uppercase tracking-tighter leading-none">{p.label}</span>
+                    <div className="mb-1 pointer-events-none">{p.icon}</div>
+                    <span className="text-[7px] font-black uppercase tracking-tighter leading-none pointer-events-none">{p.label}</span>
                   </button>
                 );
               })}
