@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { RotateCcw, Baby, HeartPulse, Zap, Camera, Utensils, Share2, Activity, Sparkles, AlertCircle, RefreshCw, UploadCloud, FileSearch, Check, Copy, Clock, Key, ExternalLink } from 'lucide-react';
+import { RotateCcw, Baby, HeartPulse, Zap, Camera, Utensils, Share2, Activity, Sparkles, AlertCircle, RefreshCw, UploadCloud, FileSearch, Check, Copy, Clock, Key, ExternalLink, Loader2 } from 'lucide-react';
 import { SectionId, BioPersona } from '../types.ts';
 import { useApp } from '../context/AppContext.tsx';
 import { analyzeMealImage } from '../services/geminiService.ts';
@@ -17,6 +17,7 @@ const Hero: React.FC = () => {
   const [loadingStep, setLoadingStep] = useState('');
   const [errorMsg, setErrorMsg] = useState<{title: string, detail: string, type?: 'quota' | 'general'} | null>(null);
   const [shareStatus, setShareStatus] = useState<'idle' | 'shared' | 'error'>('idle');
+  const [isConnectingKey, setIsConnectingKey] = useState(false);
   
   const isAr = language === 'ar';
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -73,17 +74,30 @@ const Hero: React.FC = () => {
     setLastAnalysisResult(null);
     setErrorMsg(null);
     setShareStatus('idle');
+    setIsConnectingKey(false);
     if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
   };
 
   const handleConnectPersonalKey = async () => {
-    if (window.aistudio) {
+    const aistudio = (window as any).aistudio;
+    if (aistudio && typeof aistudio.openSelectKey === 'function') {
       try {
-        await window.aistudio.openSelectKey();
-        handleReset();
+        setIsConnectingKey(true);
+        // فتح حوار اختيار المفتاح
+        await aistudio.openSelectKey();
+        // نفترض النجاح فوراً حسب التعليمات لتفادي race condition
+        setTimeout(() => {
+          handleReset();
+        }, 500);
       } catch (e) {
         console.error("Key selection failed", e);
+        setIsConnectingKey(false);
       }
+    } else {
+      // تنبيه في حال عدم التواجد في بيئة AI Studio
+      alert(isAr 
+        ? "عذراً، يجب استخدام هذه الميزة داخل منصة AI Studio الرسمية." 
+        : "This feature must be used within the official AI Studio platform.");
     }
   };
 
@@ -137,7 +151,6 @@ const Hero: React.FC = () => {
       setStatus('error');
       
       const errorStr = (err.message || "").toUpperCase();
-      // بحث فائق الشمول عن أي دلالة على نفاد الحصة أو الوصول للحد الأقصى
       const isQuotaError = errorStr.includes("QUOTA") || 
                            errorStr.includes("LIMIT") || 
                            errorStr.includes("REACHED") || 
@@ -320,8 +333,13 @@ const Hero: React.FC = () => {
                          
                          <div className="flex flex-col gap-3 w-full">
                             {errorMsg.type === 'quota' && (
-                              <button onClick={handleConnectPersonalKey} className="w-full py-5 bg-brand-primary text-brand-dark rounded-2xl text-[10px] font-black uppercase tracking-[0.4em] shadow-glow flex items-center justify-center gap-3 active:scale-95 transition-transform">
-                                 <Key size={14} /> {isAr ? 'استخدام مفتاحك الشخصي (فوري)' : 'USE PERSONAL KEY (INSTANT)'}
+                              <button 
+                                onClick={handleConnectPersonalKey} 
+                                disabled={isConnectingKey}
+                                className="w-full py-5 bg-brand-primary text-brand-dark rounded-2xl text-[10px] font-black uppercase tracking-[0.4em] shadow-glow flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-70"
+                              >
+                                 {isConnectingKey ? <Loader2 size={14} className="animate-spin" /> : <Key size={14} />} 
+                                 {isAr ? 'استخدام مفتاحك الشخصي (فوري)' : 'USE PERSONAL KEY (INSTANT)'}
                               </button>
                             )}
                             <button onClick={handleReset} className={`w-full py-5 bg-white/5 text-white rounded-2xl text-[9px] font-black uppercase tracking-[0.4em] border transition-all hover:bg-white/10 ${errorMsg.type === 'quota' ? 'border-brand-primary/20' : 'border-white/10'}`}>
