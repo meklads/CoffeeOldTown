@@ -60,6 +60,10 @@ const Hero: React.FC = () => {
 
   // إصلاح: إعادة تعيين السكانر بالكامل عند تغيير البروتوكول لضمان استقرار الواجهة
   useEffect(() => {
+    handleReset();
+  }, [currentPersona]);
+
+  const handleReset = () => {
     setImage(null);
     setStatus('idle');
     setProgress(0);
@@ -67,7 +71,7 @@ const Hero: React.FC = () => {
     if (progressIntervalRef.current) {
       clearInterval(progressIntervalRef.current);
     }
-  }, [currentPersona]);
+  };
 
   const handlePersonaSelect = (id: BioPersona) => {
     if (currentPersona === id) return;
@@ -200,7 +204,7 @@ const Hero: React.FC = () => {
                        </span>
                     </div>
                     {(image || lastAnalysisResult) && (
-                      <button onClick={() => { setImage(null); setStatus('idle'); setLastAnalysisResult(null); }} className="text-white/10 hover:text-brand-primary transition-all">
+                      <button onClick={handleReset} className="text-white/10 hover:text-brand-primary transition-all">
                          <RotateCcw size={12} />
                       </button>
                     )}
@@ -307,7 +311,13 @@ const Hero: React.FC = () => {
 
                          {/* Action Buttons */}
                          <div className="flex gap-2 pt-2 translate-y-4 animate-fade-in [animation-delay:600ms] [animation-fill-mode:forwards]">
-                            <button className={`flex-1 py-4 bg-white/5 hover:${activeConfig.color} hover:text-brand-dark transition-all rounded-[15px] lg:rounded-[25px] flex items-center justify-center gap-2 text-[8px] font-black uppercase tracking-widest text-white border border-white/5 group`}>
+                            <button 
+                              onClick={handleReset}
+                              className={`flex-1 py-4 bg-brand-primary text-brand-dark hover:bg-white transition-all rounded-[15px] lg:rounded-[25px] flex items-center justify-center gap-2 text-[8px] font-black uppercase tracking-widest border border-brand-primary/20 shadow-glow group`}
+                            >
+                               <Camera size={12} className="group-hover:scale-110 transition-transform" /> {isAr ? 'فحص جديد' : 'SCAN AGAIN'}
+                            </button>
+                            <button className={`flex-1 py-4 bg-white/5 hover:bg-white/10 text-white transition-all rounded-[15px] lg:rounded-[25px] flex items-center justify-center gap-2 text-[8px] font-black uppercase tracking-widest border border-white/5 group`}>
                                <Share2 size={12} className="group-hover:scale-110 transition-transform" /> {isAr ? 'مشاركة' : 'SHARE REPORT'}
                             </button>
                          </div>
