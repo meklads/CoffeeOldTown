@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ShieldPlus, Zap, Activity, Sun, CloudSun, Moon, ArrowUpRight, Sparkles, Microscope, ChevronRight, Beaker, Atom, Flame, Trophy, RefreshCw, AlertCircle } from 'lucide-react';
+import { ShieldPlus, Zap, Activity, Sun, CloudSun, Moon, ArrowUpRight, Sparkles, Microscope, ChevronRight, Beaker, Atom, Flame, Trophy, RefreshCw, AlertCircle, BrainCircuit } from 'lucide-react';
 import { SectionId, DayPlan } from '../types.ts';
 import { generateMealPlan } from '../services/geminiService.ts';
 import { useApp } from '../context/AppContext.tsx';
@@ -10,6 +10,7 @@ const SmartNutritionTool: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<DayPlan | null>(null);
+  const [loadingStep, setLoadingStep] = useState('');
   const chamberRef = useRef<HTMLDivElement>(null);
 
   const isAr = language === 'ar';
@@ -59,6 +60,17 @@ const SmartNutritionTool: React.FC = () => {
     setError(null);
     setResult(null);
     
+    const steps = isAr 
+      ? ['بدء الاتصال العصبي...', 'تفعيل وضع التفكير العميق...', 'تحليل المتطلبات الأيضية...', 'تخليق الخطة المثالية...']
+      : ['Initializing Link...', 'Enabling Deep Thinking...', 'Analyzing Metabolic Needs...', 'Synthesizing Blueprint...'];
+    
+    let stepIdx = 0;
+    setLoadingStep(steps[0]);
+    const stepInterval = setInterval(() => {
+      stepIdx = (stepIdx + 1) % steps.length;
+      setLoadingStep(steps[stepIdx]);
+    }, 3000);
+
     try {
       const plan = await generateMealPlan({ 
         goal: goalLabel, 
@@ -71,8 +83,9 @@ const SmartNutritionTool: React.FC = () => {
       }
     } catch (err: any) {
       console.error("Neural Synthesis error:", err);
-      setError(isAr ? 'فشل التخليق العصبي. يرجى التحقق من الاتصال والمحاولة مرة أخرى.' : 'Neural Synthesis failed. Please check connection and try again.');
+      setError(isAr ? 'تأخرت الاستجابة بسبب "التفكير العميق". يرجى المحاولة مرة أخرى.' : 'Thinking timed out. The AI is processing complex data, please try again.');
     } finally {
+      clearInterval(stepInterval);
       setLoading(false);
     }
   };
@@ -139,12 +152,15 @@ const SmartNutritionTool: React.FC = () => {
                     <div className="relative">
                        <div className="w-24 h-24 rounded-full border border-brand-primary/10 border-t-brand-primary animate-spin" />
                        <div className="absolute inset-0 flex items-center justify-center">
-                          <Microscope size={32} className="text-brand-primary animate-pulse" />
+                          <BrainCircuit size={32} className="text-brand-primary animate-pulse" />
                        </div>
                     </div>
-                    <div className="text-center space-y-2 px-10">
-                       <span className="text-[11px] font-black text-brand-primary uppercase tracking-[0.8em] animate-pulse block">{isAr ? 'تخليق المسار الأيضي...' : 'SYNTHESIZING_BLUEPRINT'}</span>
-                       <p className="text-[9px] text-white/30 uppercase tracking-widest leading-relaxed">{isAr ? 'معايرة البيانات لبروتوكول' : 'CALIBRATING FOR'} {currentPersona}</p>
+                    <div className="text-center space-y-4 px-10">
+                       <div className="inline-flex items-center gap-2 px-3 py-1 bg-brand-primary/10 rounded-full text-[8px] font-black text-brand-primary uppercase tracking-widest animate-pulse">
+                          <Sparkles size={10} /> {isAr ? 'وضع التفكير العميق نشط' : 'DEEP THINKING MODE ACTIVE'}
+                       </div>
+                       <h3 className="text-xl font-serif font-bold text-white tracking-tight animate-fade-in key={loadingStep}">{loadingStep}</h3>
+                       <p className="text-[9px] text-white/30 uppercase tracking-widest leading-relaxed">{isAr ? 'نظام النخبة يستغرق وقتاً إضافياً لضمان الدقة العلمية' : 'The elite system takes extra time to ensure clinical precision'}</p>
                     </div>
                   </div>
                 ) : error ? (
@@ -153,14 +169,14 @@ const SmartNutritionTool: React.FC = () => {
                         <AlertCircle size={40} />
                      </div>
                      <div className="space-y-3">
-                        <h4 className="text-2xl font-serif font-bold text-red-500 italic">{isAr ? 'فشل في الاتصال العصبي' : 'Neural Link Fault'}</h4>
+                        <h4 className="text-2xl font-serif font-bold text-red-500 italic">{isAr ? 'تأخر في الاستجابة الذكية' : 'Neural Processing Delay'}</h4>
                         <p className="text-brand-dark/50 dark:text-white/40 text-sm max-w-xs mx-auto leading-relaxed">{error}</p>
                      </div>
                      <button 
                         onClick={() => selectedGoal && handleGenerate(selectedGoal)}
                         className="px-8 py-4 bg-brand-dark dark:bg-white/10 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-primary transition-all flex items-center gap-3"
                       >
-                        <RefreshCw size={14} /> {isAr ? 'إعادة المحاولة' : 'RETRY SYNTHESIS'}
+                        <RefreshCw size={14} /> {isAr ? 'إعادة محاولة التخليق' : 'RETRY SYNTHESIS'}
                       </button>
                    </div>
                 ) : result ? (
