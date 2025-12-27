@@ -52,13 +52,13 @@ const TrendingRecipes: React.FC = () => {
                  <Globe size={12} className="animate-spin-slow" />
                  <span>GLOBAL SYNCHRONIZATION</span>
               </div>
-              <h2 className="text-5xl md:text-7xl font-serif font-bold text-brand-dark dark:text-white leading-none tracking-tighter whitespace-nowrap">
+              <h2 className="text-5xl md:text-7xl font-serif font-bold text-brand-dark dark:text-white leading-none tracking-tighter whitespace-nowrap overflow-hidden">
                 Trending <span className="text-brand-primary italic font-normal">Systems.</span>
               </h2>
            </div>
            <button 
              onClick={() => { setView('vaults'); window.scrollTo(0,0); }}
-             className="group flex items-center gap-4 text-brand-dark/40 dark:text-white/40 hover:text-brand-primary transition-all text-[10px] font-black uppercase tracking-[0.4em] border-b border-brand-dark/5 dark:border-white/5 pb-2"
+             className="group flex items-center gap-4 text-brand-dark/40 dark:text-white/40 hover:text-brand-primary transition-all text-[10px] font-black uppercase tracking-[0.4em] border-b border-brand-dark/5 dark:border-white/5 pb-2 shrink-0"
            >
              View Archive <ChevronRight size={14} className="group-hover:translate-x-2 transition-transform" />
            </button>

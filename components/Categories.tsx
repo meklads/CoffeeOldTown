@@ -41,11 +41,11 @@ const Categories: React.FC = () => {
                   <Sparkles size={12} className="animate-spin-slow" />
                   <span>KNOWLEDGE HUB</span>
                </div>
-               <h2 className="text-5xl md:text-8xl font-serif font-bold text-brand-dark dark:text-white tracking-tighter leading-none whitespace-nowrap">
+               <h2 className="text-5xl md:text-8xl font-serif font-bold text-brand-dark dark:text-white tracking-tighter leading-none whitespace-nowrap overflow-hidden">
                  Learn & <span className="text-brand-primary italic font-normal">Upgrade.</span>
                </h2>
             </div>
-            <p className="text-brand-dark/40 dark:text-white/30 text-lg md:text-xl font-medium max-w-sm italic leading-relaxed border-l-2 border-brand-primary/20 pl-8">
+            <p className="text-brand-dark/40 dark:text-white/30 text-lg md:text-xl font-medium max-w-sm italic leading-relaxed border-l-2 border-brand-primary/20 pl-8 shrink-0">
               {language === 'ar' 
                 ? 'تعمق في البروتوكولات العلمية التي تطور أدائك الأيضي والذهني من خلال أرشيفنا.' 
                 : 'Deepen your bio-optimization knowledge and upgrade your metabolic performance.'}
