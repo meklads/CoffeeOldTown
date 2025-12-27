@@ -1,12 +1,16 @@
 // /pages/api/analyze-meal.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
-import sharp from 'sharp'; // مكتبة لمعالجة الصور
+import { GoogleGenAI, Type } from '@google/genai';
+import { UserHealthProfile, MealAnalysisResult } from '../../types.ts';
 
-interface AnalyzeMealRequest {
-  base64Image: string;
-  profile?: any;
-  lang?: string;
-}
+// تهيئة Google AI على Server-side فقط
+const getAI = () => {
+  const key = process.env.API_KEY;
+  if (!key) {
+    throw new Error('MISSING_KEY');
+  }
+  return new GoogleGenAI({ apiKey: key });
+};
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -14,42 +18,73 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const { base64Image, profile, lang }: AnalyzeMealRequest = req.body;
+    const { base64Image, profile, lang } = req.body as { base64Image: string; profile?: UserHealthProfile; lang?: string };
 
     if (!base64Image) {
       return res.status(400).json({ error: 'No image provided' });
     }
 
-    // تحويل Base64 إلى Buffer
-    const matches = base64Image.match(/^data:image\/\w+;base64,(.+)$/);
-    const data = matches ? matches[1] : base64Image;
-    const imageBuffer = Buffer.from(data, 'base64');
+    const ai = getAI();
+    const base64Data = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
+    const persona = profile?.persona || 'GENERAL';
+    const languageInstruction = lang === 'ar'
+      ? 'يجب أن تكون الاستجابة باللغة العربية الفصحى فقط.'
+      : 'Response must be entirely in English.';
 
-    // استخدام sharp لمعرفة أبعاد الصورة
-    const metadata = await sharp(imageBuffer).metadata();
-
-    // التحقق من وضوح الصورة / الحجم
-    if (!metadata.width || !metadata.height || metadata.width < 200 || metadata.height < 200) {
-      return res.status(400).json({
-        error: 'Image too small or unclear. Please provide a clearer photo of the meal.'
-      });
-    }
-
-    // TODO: إرسال الصورة إلى خدمة التحليل (مثلاً Google AI أو أي backend آخر)
-    // هذا مثال وهمي للرد
-    const fakeResponse = {
-      ingredients: [{ name: 'Chicken', calories: 250 }],
-      totalCalories: 250,
-      healthScore: 80,
-      macros: { protein: 30, carbs: 10, fat: 15 },
-      summary: 'Healthy meal',
-      personalizedAdvice: 'Add more veggies'
+    const mealAnalysisSchema = {
+      type: Type.OBJECT,
+      properties: {
+        ingredients: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              name: { type: Type.STRING },
+              calories: { type: Type.NUMBER }
+            },
+            required: ['name', 'calories']
+          }
+        },
+        totalCalories: { type: Type.NUMBER },
+        healthScore: { type: Type.NUMBER },
+        macros: {
+          type: Type.OBJECT,
+          properties: {
+            protein: { type: Type.NUMBER },
+            carbs: { type: Type.NUMBER },
+            fat: { type: Type.NUMBER }
+          },
+          required: ['protein', 'carbs', 'fat']
+        },
+        summary: { type: Type.STRING },
+        personalizedAdvice: { type: Type.STRING }
+      },
+      required: ['ingredients', 'totalCalories', 'healthScore', 'macros', 'summary', 'personalizedAdvice']
     };
 
-    res.status(200).json(fakeResponse);
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: {
+        parts: [
+          { inlineData: { data: base64Data, mimeType: 'image/jpeg' } },
+          { text: `تحليل دقيق لهذا الطبق وفق بروتوكول: ${persona}. ${languageInstruction} أعد النتيجة بتنسيق JSON فقط.` }
+        ]
+      },
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: mealAnalysisSchema,
+        temperature: 0.1
+      }
+    });
+
+    const resultText = response.text;
+    if (!resultText) return res.status(500).json({ error: 'Failed to analyze meal' });
+
+    const result: MealAnalysisResult = JSON.parse(resultText.trim());
+    res.status(200).json(result);
 
   } catch (error: any) {
     console.error('Analyze Meal Error:', error);
-    res.status(500).json({ error: 'Failed to analyze the meal' });
+    res.status(500).json({ error: error.message || 'Failed to analyze meal' });
   }
 }
