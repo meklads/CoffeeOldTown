@@ -92,7 +92,9 @@ export default async function handler(req: any, res: any) {
       config: { 
         responseMimeType: "application/json",
         responseSchema: dayPlanSchema,
-        temperature: 0.2
+        temperature: 0.2,
+        // تفعيل ميزه التفكير العميق لزيادة جودة الخطة
+        thinkingConfig: { thinkingBudget: 8000 }
       }
     });
 
