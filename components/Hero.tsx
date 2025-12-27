@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { RotateCcw, Baby, HeartPulse, Zap, Camera, Utensils, Share2, Activity, Sparkles, AlertCircle, RefreshCw, UploadCloud, FileSearch, Check, Copy } from 'lucide-react';
+import { RotateCcw, Baby, HeartPulse, Zap, Camera, Utensils, Share2, Activity, Sparkles, AlertCircle, RefreshCw, UploadCloud, FileSearch, Check, Copy, Clock } from 'lucide-react';
 import { SectionId, BioPersona } from '../types.ts';
 import { useApp } from '../context/AppContext.tsx';
 import { analyzeMealImage } from '../services/geminiService.ts';
@@ -8,7 +8,6 @@ import { analyzeMealImage } from '../services/geminiService.ts';
 const Hero: React.FC = () => {
   const { incrementScans, setLastAnalysisResult, lastAnalysisResult, currentPersona, setCurrentPersona, language } = useApp();
   
-  // استعادة الحالة من السياق العام إذا كانت موجودة
   const [image, setImage] = useState<string | null>(lastAnalysisResult?.imageUrl || null);
   const [status, setStatus] = useState<'idle' | 'processing' | 'loading' | 'error' | 'success'>(
     lastAnalysisResult ? 'success' : 'idle'
@@ -16,14 +15,13 @@ const Hero: React.FC = () => {
   
   const [progress, setProgress] = useState(0);
   const [loadingStep, setLoadingStep] = useState('');
-  const [errorMsg, setErrorMsg] = useState<{title: string, detail: string} | null>(null);
+  const [errorMsg, setErrorMsg] = useState<{title: string, detail: string, type?: 'quota' | 'general'} | null>(null);
   const [shareStatus, setShareStatus] = useState<'idle' | 'shared' | 'error'>('idle');
   
   const isAr = language === 'ar';
   const fileInputRef = useRef<HTMLInputElement>(null);
   const progressIntervalRef = useRef<number | null>(null);
 
-  // تحديث المكون إذا تغيرت النتائج عالمياً أو تم الدخول للمكون مرة أخرى
   useEffect(() => {
     if (lastAnalysisResult && !image) {
       setImage(lastAnalysisResult.imageUrl || null);
@@ -127,14 +125,27 @@ const Hero: React.FC = () => {
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       setStatus('error');
       
-      const isMissingKey = err.message && err.message.includes("MISSING_KEY");
+      const errorStr = err.message || "";
+      const isQuotaError = errorStr.includes("QUOTA") || errorStr.includes("429") || errorStr.includes("quota");
+      const isMissingKey = errorStr.includes("MISSING_KEY");
       
-      setErrorMsg({
-        title: isAr ? (isMissingKey ? "خطأ في المفتاح" : "فشل التحليل") : (isMissingKey ? "API Key Issue" : "Analysis Failed"),
-        detail: isAr 
-          ? (isMissingKey ? "مفتاح API غير مفعّل في إعدادات Vercel." : `عذراً: ${err.message || 'حدث خطأ غير معروف'}`)
-          : (isMissingKey ? "API Key is not configured in Vercel settings." : `Error: ${err.message || 'Internal processing error'}`)
-      });
+      if (isQuotaError) {
+        setErrorMsg({
+          title: isAr ? "نفذت حصة الاستخدام" : "Quota Reached",
+          detail: isAr 
+            ? "لقد وصلت للحد اليومي المسموح به للذكاء الاصطناعي (20 طلب). يرجى المحاولة مرة أخرى غداً أو استخدام مفتاح API مدفوع."
+            : "You've reached the daily AI limit (20 requests). Please try again tomorrow or use a paid API key.",
+          type: 'quota'
+        });
+      } else {
+        setErrorMsg({
+          title: isAr ? (isMissingKey ? "خطأ في المفتاح" : "فشل التحليل") : (isMissingKey ? "API Key Issue" : "Analysis Failed"),
+          detail: isAr 
+            ? (isMissingKey ? "مفتاح API غير مفعّل في إعدادات Vercel." : `عذراً، حدث خطأ أثناء المعالجة: ${err.message}`)
+            : (isMissingKey ? "API Key is not configured in Vercel settings." : `Error: ${err.message || 'Internal processing error'}`),
+          type: 'general'
+        });
+      }
     }
   };
 
@@ -283,12 +294,12 @@ const Hero: React.FC = () => {
                       </div>
                     ) : status === 'error' && errorMsg ? (
                       <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-10 animate-fade-in">
-                         <AlertCircle size={44} className="text-red-500" />
+                         {errorMsg.type === 'quota' ? <Clock size={44} className="text-brand-primary animate-pulse" /> : <AlertCircle size={44} className="text-red-500" />}
                          <div className="space-y-4">
-                            <h4 className="text-3xl font-serif font-bold text-red-500 italic">{errorMsg.title}</h4>
-                            <p className="text-white/40 text-[10px] uppercase tracking-widest px-4">{errorMsg.detail}</p>
+                            <h4 className={`text-3xl font-serif font-bold italic ${errorMsg.type === 'quota' ? 'text-brand-primary' : 'text-red-500'}`}>{errorMsg.title}</h4>
+                            <p className="text-white/40 text-[11px] uppercase tracking-widest px-4 leading-relaxed">{errorMsg.detail}</p>
                          </div>
-                         <button onClick={handleReset} className="px-10 py-5 bg-white/5 text-white rounded-2xl text-[9px] font-black uppercase tracking-[0.4em] border border-white/10 hover:bg-white/10 transition-all">
+                         <button onClick={handleReset} className={`px-10 py-5 bg-white/5 text-white rounded-2xl text-[9px] font-black uppercase tracking-[0.4em] border transition-all hover:bg-white/10 ${errorMsg.type === 'quota' ? 'border-brand-primary/30' : 'border-white/10'}`}>
                             {isAr ? 'تلقيم عينة جديدة' : 'LOAD NEW SPECIMEN'}
                          </button>
                       </div>

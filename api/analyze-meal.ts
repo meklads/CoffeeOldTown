@@ -61,7 +61,6 @@ export default async function handler(req: any, res: any) {
 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    // تنظيف بيانات الصورة لتكون متوافقة مع البروتوكول
     const base64Data = image.includes(',') ? image.split(',')[1] : image;
     const persona = profile?.persona || 'GENERAL';
 
@@ -90,6 +89,15 @@ export default async function handler(req: any, res: any) {
     return res.status(200).json(JSON.parse(resultText.trim()));
   } catch (error: any) {
     console.error("Vercel Serverless Error:", error);
+    
+    // إذا كان الخطأ بسبب الحصة (Quota)
+    if (error.status === 429 || (error.message && error.message.includes("quota"))) {
+      return res.status(429).json({ 
+        error: 'QUOTA_EXCEEDED', 
+        details: 'You have reached the daily limit for the free AI model.' 
+      });
+    }
+
     return res.status(500).json({ 
       error: 'Analysis Failed', 
       details: error.message,
