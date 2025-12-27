@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { RotateCcw, Baby, HeartPulse, Zap, Camera, Utensils, Monitor as MonitorIcon, Share2, AlertTriangle, Info, Download } from 'lucide-react';
+import { RotateCcw, Baby, HeartPulse, Zap, Camera, Utensils, Monitor as MonitorIcon, Share2, AlertTriangle, Info, Download, FileText } from 'lucide-react';
 import { SectionId, BioPersona } from '../types.ts';
 import { useApp } from '../context/AppContext.tsx';
 import { analyzeMealImage } from '../services/geminiService.ts';
@@ -80,6 +80,43 @@ const Hero: React.FC = () => {
     }
   };
 
+  const handleDownloadReport = () => {
+    if (!lastAnalysisResult) return;
+    
+    const reportText = `
+COFFEE OLD TOWN LAB - BIOMETRIC REPORT
+--------------------------------------
+Timestamp: ${lastAnalysisResult.timestamp}
+Protocol: ${currentPersona}
+Summary: ${lastAnalysisResult.summary}
+Total Energy: ${lastAnalysisResult.totalCalories} kcal
+Health Score: ${lastAnalysisResult.healthScore}/100
+
+MACRONUTRIENTS:
+- Protein: ${lastAnalysisResult.macros.protein}g
+- Carbs: ${lastAnalysisResult.macros.carbs}g
+- Fats: ${lastAnalysisResult.macros.fat}g
+
+DIAGNOSTIC ADVICE:
+${lastAnalysisResult.personalizedAdvice}
+
+WARNINGS:
+${lastAnalysisResult.warnings?.map(w => typeof w === 'string' ? `- ${w}` : `- ${w.text}`).join('\n') || 'None'}
+
+VERIFIED BY GEMINI AI SYSTEM v5.0
+    `;
+    
+    const blob = new Blob([reportText], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `OTL-Report-${Date.now()}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const handleShare = async () => {
     if (navigator.share && lastAnalysisResult) {
       try {
@@ -152,11 +189,10 @@ const Hero: React.FC = () => {
           
           {/* الكتلة اليمنى: شاشة السكانر (The Monitor Frame) */}
           <div ref={stationRef} className="lg:w-1/2 w-full order-2 flex flex-col justify-center">
-               {/* الإطار الخارجي - تصميم عائم مستطيل أكثر تناسقاً مع ارتفاع اليسار */}
                <div className="w-full max-w-[500px] mx-auto bg-[#0F0D0C] rounded-[55px] md:rounded-[65px] border border-white/10 shadow-[0_50px_100px_-20px_rgba(0,0,0,1)] overflow-hidden flex flex-col relative group m-6 md:m-0">
                   
-                  {/* شاشة النتائج الداخلية - تم ضبط الارتفاع ليتناسق مع اليسار */}
-                  <div className="flex-1 p-8 md:p-12 flex flex-col relative z-10 h-[750px] md:h-[720px] overflow-y-auto no-scrollbar bg-[#050505]">
+                  {/* شاشة النتائج الداخلية */}
+                  <div className="flex-1 p-8 md:p-12 flex flex-col relative z-10 h-[750px] md:h-[730px] overflow-y-auto no-scrollbar bg-[#050505]">
                      
                      <div className="flex justify-between items-center mb-10 shrink-0">
                         <div className="flex items-center gap-3">
@@ -204,9 +240,12 @@ const Hero: React.FC = () => {
                           </div>
                         ) : status === 'success' && lastAnalysisResult ? (
                           <div className="w-full space-y-10 animate-fade-in py-4">
-                             <div className="space-y-2">
-                                <span className="text-[10px] font-black text-brand-primary uppercase tracking-widest">{isAr ? 'التقرير الأيضي' : 'BIO-REPORT'}</span>
-                                <h2 className="text-4xl md:text-5xl font-serif font-bold text-white tracking-tighter italic leading-tight">{lastAnalysisResult.summary}</h2>
+                             <div className="space-y-3">
+                                <div className="flex items-center gap-2">
+                                  <FileText size={12} className="text-brand-primary" />
+                                  <span className="text-[10px] font-black text-brand-primary uppercase tracking-widest">{isAr ? 'التقرير الأيضي' : 'BIO-REPORT'}</span>
+                                </div>
+                                <h2 className="text-xl md:text-2xl font-sans font-bold text-white tracking-tight leading-relaxed">{lastAnalysisResult.summary}</h2>
                              </div>
                              
                              <div className="grid grid-cols-2 gap-4">
@@ -224,7 +263,7 @@ const Hero: React.FC = () => {
                                 {['protein', 'carbs', 'fat'].map((macro) => (
                                   <div key={macro} className="flex-1 bg-white/5 py-5 rounded-[28px] border border-white/5 text-center">
                                     <span className="text-[9px] font-black text-white/20 uppercase block mb-1">{macro}</span>
-                                    <span className="text-base font-serif font-bold text-white">{(lastAnalysisResult.macros as any)[macro]}g</span>
+                                    <span className="text-base font-sans font-bold text-white">{(lastAnalysisResult.macros as any)[macro]}g</span>
                                   </div>
                                 ))}
                              </div>
@@ -234,23 +273,23 @@ const Hero: React.FC = () => {
                                   <AlertTriangle size={22} className="text-red-500 shrink-0 mt-1" />
                                   <div className="space-y-1">
                                      <span className="text-[9px] font-black text-red-500 uppercase tracking-widest">CRITICAL ALERT</span>
-                                     <p className="text-xs text-white/70 leading-relaxed">
+                                     <p className="text-xs font-sans text-white/70 leading-relaxed">
                                        {typeof lastAnalysisResult.warnings[0] === 'object' ? (lastAnalysisResult.warnings[0] as any).text : lastAnalysisResult.warnings[0]}
                                      </p>
                                   </div>
                                </div>
                              )}
 
-                             <div className="p-10 bg-brand-primary/5 border border-brand-primary/20 rounded-[45px] relative overflow-hidden group/advice">
+                             <div className="p-8 bg-brand-primary/5 border border-brand-primary/20 rounded-[45px] relative overflow-hidden">
                                 <div className="absolute top-0 right-0 p-5 text-brand-primary/20"><Info size={20} /></div>
-                                <p className="text-white/80 text-base font-medium italic leading-relaxed">"{lastAnalysisResult.personalizedAdvice}"</p>
+                                <p className="text-white/80 text-sm font-sans italic leading-relaxed">"{lastAnalysisResult.personalizedAdvice}"</p>
                              </div>
 
                              <div className="flex gap-4 pt-6">
                                 <button onClick={handleShare} className="flex-1 py-6 bg-white/10 hover:bg-brand-primary hover:text-brand-dark transition-all rounded-[28px] flex items-center justify-center gap-4 text-[11px] font-black uppercase tracking-widest text-white">
                                    <Share2 size={18} /> SHARE
                                 </button>
-                                <button className="w-24 py-6 bg-white/10 hover:bg-white hover:text-brand-dark transition-all rounded-[28px] flex items-center justify-center text-white">
+                                <button onClick={handleDownloadReport} className="w-24 py-6 bg-white/10 hover:bg-white hover:text-brand-dark transition-all rounded-[28px] flex items-center justify-center text-white">
                                    <Download size={20} />
                                 </button>
                              </div>
