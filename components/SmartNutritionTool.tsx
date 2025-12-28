@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { ShieldPlus, Zap, Activity, Sun, CloudSun, Moon, ArrowUpRight, BrainCircuit, AlertCircle, Sparkles, Atom, RefreshCw, ChevronRight, Fingerprint } from 'lucide-react';
 import { SectionId, DayPlan } from '../types.ts';
 import { generateMealPlan } from '../services/geminiService.ts';
@@ -28,19 +28,29 @@ const SmartNutritionTool: React.FC = () => {
     setResult(null);
 
     try {
-      // استخدام خدمة Gemini المحسنة للسرعة
-      const plan = await generateMealPlan({ goal: goalLabel, diet: 'balanced', persona: currentPersona }, language, feedbackHistory);
-      if (plan) {
+      const plan = await generateMealPlan(
+        { goal: goalLabel, diet: 'balanced', persona: currentPersona }, 
+        language, 
+        feedbackHistory
+      );
+      
+      // Safety check: ensure plan and its primary expected meals exist
+      if (plan && (plan.breakfast || plan.lunch || plan.dinner)) {
         setResult(plan);
-        setTimeout(() => {
-          chamberRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 100);
+        // Defer scroll to ensure DOM has updated with the results
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            if (chamberRef.current) {
+              chamberRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }, 150);
+        });
       } else {
-        throw new Error("Empty Result");
+        throw new Error("Malformed Response");
       }
     } catch (err: any) {
       console.error("Synthesis failed:", err);
-      setError(isAr ? 'فشل التخليق الحيوي. الموديل مشغول حالياً.' : 'Synthesis failed. System overloaded.');
+      setError(isAr ? 'فشل التخليق الحيوي. يرجى التحقق من مفتاح API أو المحاولة لاحقاً.' : 'Synthesis failed. Please check API key or retry later.');
     } finally {
       setLoading(false);
     }
@@ -144,7 +154,7 @@ const SmartNutritionTool: React.FC = () => {
                        <div className="flex items-center gap-4 bg-brand-dark/5 dark:bg-white/5 p-4 rounded-3xl border border-brand-primary/10">
                           <div className="text-right">
                              <span className="block text-[8px] font-black uppercase text-brand-primary/50 tracking-widest">{isAr ? 'إجمالي الطاقة' : 'TOTAL LOAD'}</span>
-                             <span className="text-3xl font-serif font-bold text-brand-primary">{result.totalCalories}</span>
+                             <span className="text-3xl font-serif font-bold text-brand-primary">{result?.totalCalories || '---'}</span>
                           </div>
                           <span className="text-xs font-bold text-brand-primary/30 mt-4 tracking-tighter">KCAL</span>
                           <button onClick={() => setResult(null)} className="ml-4 p-3 bg-brand-dark text-white rounded-2xl hover:bg-brand-primary transition-all">
@@ -155,20 +165,20 @@ const SmartNutritionTool: React.FC = () => {
 
                     <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
                        {[ 
-                         {l: isAr ? 'الإفطار' : 'Breakfast', i: <Sun />, d: result.breakfast, bg: 'bg-orange-500/5 text-orange-500' }, 
-                         {l: isAr ? 'الغداء' : 'Lunch', i: <CloudSun />, d: result.lunch, bg: 'bg-blue-500/5 text-blue-500' }, 
-                         {l: isAr ? 'العشاء' : 'Dinner', i: <Moon />, d: result.dinner, bg: 'bg-indigo-500/5 text-indigo-500' },
-                         {l: isAr ? 'سناك' : 'Snack', i: <Zap />, d: result.snack, bg: 'bg-brand-primary/5 text-brand-primary' }
+                         {l: isAr ? 'الإفطار' : 'Breakfast', i: <Sun />, d: result?.breakfast, bg: 'bg-orange-500/5 text-orange-500' }, 
+                         {l: isAr ? 'الغداء' : 'Lunch', i: <CloudSun />, d: result?.lunch, bg: 'bg-blue-500/5 text-blue-500' }, 
+                         {l: isAr ? 'العشاء' : 'Dinner', i: <Moon />, d: result?.dinner, bg: 'bg-indigo-500/5 text-indigo-500' },
+                         {l: isAr ? 'سناك' : 'Snack', i: <Zap />, d: result?.snack, bg: 'bg-brand-primary/5 text-brand-primary' }
                        ].map((m, i) => (
                          <div key={i} className="group/card p-8 bg-brand-cream/10 dark:bg-white/5 rounded-[45px] border border-brand-dark/5 dark:border-white/5 text-center transition-all hover:bg-white dark:hover:bg-brand-dark/80 hover:shadow-3xl hover:-translate-y-2 duration-700">
                             <div className={`w-14 h-14 ${m.bg} rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl group-hover/card:scale-110 transition-transform`}>
                                {m.i}
                             </div>
                             <span className="text-[8px] font-black uppercase tracking-widest text-brand-dark/30 dark:text-white/20 mb-2 block">{m.l}</span>
-                            <h5 className="font-serif font-bold text-brand-dark dark:text-white mb-3 text-lg leading-tight line-clamp-2">{m.d.name}</h5>
-                            <div className="text-[10px] text-brand-primary font-bold mb-4">{m.d.calories} KCAL</div>
+                            <h5 className="font-serif font-bold text-brand-dark dark:text-white mb-3 text-lg leading-tight line-clamp-2">{m.d?.name || (isAr ? 'عينة قيد البرمجة' : 'Sample Encoding')}</h5>
+                            <div className="text-[10px] text-brand-primary font-bold mb-4">{m.d?.calories || '---'} KCAL</div>
                             <p className="text-[10px] text-brand-dark/40 dark:text-white/20 italic line-clamp-2 leading-relaxed opacity-0 group-hover/card:opacity-100 transition-opacity">
-                               {m.d.description}
+                               {m.d?.description || (isAr ? 'يتم تحليل المكونات الجزيئية لهذه الوجبة.' : 'Analyzing molecular substrates of this meal.')}
                             </p>
                          </div>
                        ))}
@@ -181,7 +191,7 @@ const SmartNutritionTool: React.FC = () => {
                          <div className="space-y-4">
                             <span className="text-[9px] font-black uppercase tracking-[0.4em] opacity-40">{isAr ? 'توصية المختبر العصبية' : 'LAB NEURAL ADVISORY'}</span>
                             <p className="text-xl md:text-2xl font-serif italic leading-relaxed text-white/90">
-                               "{result.advice}"
+                               "{result?.advice || (isAr ? 'استمر في الالتزام بالبروتوكول لضمان أفضل استقرار لعملياتك الحيوية.' : 'Adhere to protocol parameters for optimal biometric stability.')}"
                             </p>
                          </div>
                       </div>

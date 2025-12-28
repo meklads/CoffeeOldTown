@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 
 export const config = {
@@ -22,10 +21,10 @@ export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).end();
 
   const { image, profile, lang } = req.body;
-  const apiKey = process.env.API_KEY;
 
   try {
-    const ai = new GoogleGenAI({ apiKey: apiKey! });
+    // Initializing with process.env.API_KEY directly as per guidelines
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
     const base64Data = image.includes(',') ? image.split(',')[1] : image;
     
     // برومبت فائق السرعة ومختصر جداً لتقليل وقت المعالجة

@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import Navbar from './components/Navbar.tsx';
 import Hero from './components/Hero.tsx';
 import SmartNutritionTool from './components/SmartNutritionTool.tsx';
 import BioNexus from './components/BioNexus.tsx';
+import MealScanner from './components/MealScanner.tsx';
 import VaultsPage from './components/VaultsPage.tsx';
 import RecipeDetail from './components/RecipeDetail.tsx';
 import Footer from './components/Footer.tsx';
@@ -157,6 +157,8 @@ const App: React.FC = () => {
             <HorizontalDivider />
             <SmartNutritionTool />
             <HorizontalDivider />
+            <MealScanner />
+            <HorizontalDivider />
             <TrendingRecipes />
             <HorizontalDivider />
             <KnowledgeHub />
@@ -182,18 +184,9 @@ const App: React.FC = () => {
       isCloudConnected, setIsCloudConnected,
       isApiKeyLinked, setIsApiKeyLinked
     }}>
-      <div className="min-h-screen flex flex-col bg-brand-light dark:bg-brand-dark text-brand-dark dark:text-brand-light font-sans selection:bg-brand-primary/30 transition-colors duration-500 scroll-smooth">
-        
-        {theme === 'dark' && (
-          <div className="coffee-nebula-container">
-            <div className="nebula-glow w-[600px] h-[600px] bg-brand-primary/20 top-[-10%] right-[-10%] animate-float-slow" />
-            <div className="nebula-glow w-[500px] h-[500px] bg-[#3E2723]/30 top-[40%] left-[-5%] animate-float-reverse" />
-            <div className="nebula-glow w-[400px] h-[400px] bg-brand-gold/10 bottom-[5%] right-[5%] animate-float-slow" style={{ animationDelay: '-5s' }} />
-          </div>
-        )}
-
+      <div className="min-h-screen flex flex-col bg-brand-light dark:bg-brand-dark text-brand-dark dark:text-brand-light font-sans selection:bg-brand-primary/30 transition-colors duration-1000">
         <Navbar />
-        <main className="flex-grow relative z-10">
+        <main className="flex-grow">
           {renderContent()}
         </main>
         <Footer />
