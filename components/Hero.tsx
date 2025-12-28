@@ -30,13 +30,32 @@ const Hero: React.FC = () => {
 
   const currentConf = personaConfigs[currentPersona];
 
+  // دالة لضغط الصورة بشكل كبير لضمان السرعة
+  const compressImage = (base64: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = base64;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 450; // حجم مثالي للذكاء الاصطناعي وخفيف جداً على الشبكة
+        const scaleSize = MAX_WIDTH / img.width;
+        canvas.width = MAX_WIDTH;
+        canvas.height = img.height * scaleSize;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.5)); // جودة متوسطة لسرعة خرافية
+      };
+    });
+  };
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setStatus('processing');
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setImage(reader.result as string);
+      reader.onloadend = async () => {
+        const compressed = await compressImage(reader.result as string);
+        setImage(compressed);
         setStatus('idle');
       };
       reader.readAsDataURL(file);
@@ -61,15 +80,15 @@ const Hero: React.FC = () => {
     setErrorMsg(null);
     
     const steps = isAr 
-      ? ['مزامنة مع جوجل...', 'استخلاص البيانات العصبية...', 'تحليل البصمة الأيضية...', 'توليد التقرير السريري...'] 
-      : ['Syncing Google AI...', 'Neural Extraction...', 'Metabolic Analysis...', 'Generating Report...'];
+      ? ['ضبط المستشعرات...', 'تشفير البروتوكول...', 'تحليل الجزيئات...', 'إتمام التقرير...'] 
+      : ['Adjusting Sensors...', 'Encoding Protocol...', 'Molecular Analysis...', 'Finalizing Report...'];
     
     let currentStepIdx = 0;
     setLoadingStep(steps[0]);
 
     progressIntervalRef.current = window.setInterval(() => {
       setProgress(prev => {
-        const next = prev + 1;
+        const next = prev + 2;
         if (next >= 98) return 98;
         const stepIdx = Math.floor((next / 100) * steps.length);
         if (stepIdx !== currentStepIdx && stepIdx < steps.length) {
@@ -78,7 +97,7 @@ const Hero: React.FC = () => {
         }
         return next;
       });
-    }, 40);
+    }, 50);
 
     try {
       const result = await analyzeMealImage(image, {
@@ -101,20 +120,22 @@ const Hero: React.FC = () => {
       setStatus('error');
       
       const isQuota = err.message === "QUOTA_EXCEEDED";
+      const isConfig = err.message === "CONFIG_ERROR";
+
       setErrorMsg({
-        title: isQuota ? (isAr ? "حدود جوجل المجانية" : "Google Quota Reached") : (isAr ? "خطأ في الاتصال" : "Neural Link Failure"),
-        detail: isQuota 
-          ? (isAr ? "يرجى الانتظار دقيقة واحدة فقط ثم المحاولة مرة أخرى." : "Please wait 60 seconds before scanning again.")
-          : (isAr ? "تأكد من اتصالك بالإنترنت وحاول مرة أخرى." : "Check your connection and retry the analysis."),
-        type: isQuota ? 'quota' : 'general'
+        title: isConfig ? (isAr ? "نظام غير مهيأ" : "System Offline") : isQuota ? (isAr ? "ضغط على الشبكة" : "Network Load") : (isAr ? "فشل الارتباط" : "Neural Link Failure"),
+        detail: isConfig 
+          ? (isAr ? "مفتاح API غير متوفر في إعدادات فيرسال." : "API Key missing in environment variables.")
+          : isQuota 
+            ? (isAr ? "لقد وصلت لحدود جوجل المجانية. انتظر دقيقة واحدة." : "Google Quota reached. Please wait 60s.")
+            : (isAr ? "حدث خطأ في الشبكة أو الصورة كبيرة جداً. حاول مرة أخرى." : "Connection failed. Please retry with a smaller image."),
+        type: isConfig ? 'config' : isQuota ? 'quota' : 'general'
       });
     }
   };
 
   return (
     <section id={SectionId.PHASE_01_SCAN} className="relative min-h-screen pt-32 pb-20 overflow-hidden bg-brand-light dark:bg-brand-dark transition-colors duration-1000">
-      <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-brand-primary/5 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/2" />
-      
       <div className="max-w-7xl mx-auto px-6 relative z-10 h-full">
         <div className="grid lg:grid-cols-12 gap-12 lg:gap-20 items-center">
           
@@ -129,7 +150,7 @@ const Hero: React.FC = () => {
                 <span className={`${currentConf.accent} italic font-normal transition-colors duration-700`}>{isAr ? 'التشخيص الذكي.' : 'Diagnostics.'}</span>
               </h1>
               <p className="text-brand-dark/50 dark:text-white/40 text-lg font-medium italic leading-relaxed max-w-sm">
-                {isAr ? 'الآن الماسح الضوئي يعمل مباشرة مع ذكاء جوجل لتخطي أي قيود فنية.' : 'Direct Google AI integration enabled. Bypassing all technical limitations.'}
+                {isAr ? 'تم تحسين المسح الضوئي ليعمل بسرعة البرق على جميع البروتوكولات.' : 'Scanner optimized for lightning-fast results across all protocols.'}
               </p>
             </div>
 
@@ -165,7 +186,7 @@ const Hero: React.FC = () => {
             <div className="pt-6 hidden lg:block">
                <div className="flex items-center gap-4 text-brand-dark/20 dark:text-white/10 uppercase font-black text-[9px] tracking-[0.4em]">
                   <Settings size={14} className="animate-spin-slow" />
-                  <span>{isAr ? 'التحليل يتم الآن عبر المتصفح لضمان الاستمرارية' : 'ANALYSIS EXECUTED LOCALLY FOR PERSISTENCE'}</span>
+                  <span>{isAr ? 'نظام التشخيص متصل مباشرة بـ Google AI' : 'DIAGNOSTIC SYSTEM LINKED TO GOOGLE AI'}</span>
                </div>
             </div>
           </div>
