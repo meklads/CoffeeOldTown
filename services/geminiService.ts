@@ -34,32 +34,32 @@ const mealAnalysisSchema = {
 };
 
 export const analyzeMealImage = async (base64Image: string, profile: UserHealthProfile, lang: string = 'en'): Promise<MealAnalysisResult | null> => {
-  // استخدام مفتاح النظام الافتراضي مع التحقق من وجوده
+  // استخدام المفتاح من البيئة مباشرة
   const apiKey = process.env.API_KEY;
-  if (!apiKey) throw new Error("CONFIG_ERROR");
+  if (!apiKey) throw new Error("API_KEY_MISSING");
 
   try {
+    // إنشاء مثيل جديد دائماً لضمان استخدام أحدث مفتاح
     const ai = new GoogleGenAI({ apiKey });
     const base64Data = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
     const persona = profile?.persona || 'GENERAL';
 
-    // طلب تحليل فائق السرعة لضمان عدم تجاوز حدود Vercel أو المتصفح
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview', 
       contents: {
         parts: [
           { inlineData: { data: base64Data, mimeType: 'image/jpeg' } },
-          { text: `FAST DIAGNOSIS: Analyze this specimen for ${persona} protocol. 
-            Output JSON in ${lang === 'ar' ? 'Arabic' : 'English'}. 
-            Focus: ${persona}. 
-            Be concise.` }
+          { text: `DIAGNOSTIC MISSION: Analyze this meal as a metabolic expert. 
+            Protocol: ${persona}. 
+            Language: ${lang === 'ar' ? 'Arabic' : 'English'}. 
+            Return strictly JSON.` }
         ]
       },
       config: { 
         responseMimeType: "application/json", 
         responseSchema: mealAnalysisSchema,
         temperature: 0.1,
-        thinkingConfig: { thinkingBudget: 0 } 
+        thinkingConfig: { thinkingBudget: 0 }
       }
     });
 
@@ -70,15 +70,17 @@ export const analyzeMealImage = async (base64Image: string, profile: UserHealthP
        timestamp: new Date().toLocaleString()
     };
   } catch (error: any) {
-    console.error("Gemini Direct Error:", error.message);
+    console.error("Neural Analysis Failure:", error.message);
     if (error.message?.includes("429")) throw new Error("QUOTA_EXCEEDED");
-    if (error.message?.includes("fetch")) throw new Error("NETWORK_DISRUPTION");
+    if (error.message?.includes("not found")) throw new Error("KEY_INVALID");
     throw new Error("NEURAL_LINK_FAILURE");
   }
 };
 
 export const generateMealPlan = async (request: MealPlanRequest, lang: string, feedback: FeedbackEntry[] = []): Promise<DayPlan | null> => {
   try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+    // استخدام التحويل للسيرفر للخطة لأنها معقدة وتتطلب وقت أطول (Thinking)
     const response = await fetch('/api/generate-plan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -91,6 +93,7 @@ export const generateMealPlan = async (request: MealPlanRequest, lang: string, f
   }
 };
 
+// Fix: Implement generateMascot by calling the dedicated backend API endpoint
 export const generateMascot = async (prompt: string): Promise<string | null> => {
   try {
     const response = await fetch('/api/generate-mascot', {
@@ -100,8 +103,9 @@ export const generateMascot = async (prompt: string): Promise<string | null> => 
     });
     if (!response.ok) return null;
     const data = await response.json();
-    return data.imageUrl;
+    return data.imageUrl || null;
   } catch (error) {
+    console.error("Mascot generation failed:", error);
     return null;
   }
 };
