@@ -24,14 +24,14 @@ const Hero: React.FC = () => {
 
   const currentConf = personaConfigs[currentPersona];
 
-  // ضغط الصورة لضمان السرعة القصوى
+  // ضغط متوازن للصورة لضمان الدقة والسرعة في نفس الوقت
   const resizeImage = (base64Str: string): Promise<string> => {
     return new Promise((resolve) => {
       const img = new Image();
       img.src = base64Str;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_DIM = 600; // تصغير أكثر لضمان سرعة Vercel
+        const MAX_DIM = 800; 
         let width = img.width;
         let height = img.height;
 
@@ -50,7 +50,7 @@ const Hero: React.FC = () => {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.6));
+        resolve(canvas.toDataURL('image/jpeg', 0.8)); // جودة أعلى قليلاً
       };
     });
   };
@@ -75,18 +75,25 @@ const Hero: React.FC = () => {
     setStatus('loading');
     setErrorType('');
 
-    // مؤقت أمان: إذا استغرق الطلب أكثر من 9 ثوانٍ، نعتبره فشلاً لمنع التجمد
+    // تم رفع المهلة إلى 30 ثانية لتجنب الفشل في أوقات ضغط السيرفر
     timeoutRef.current = window.setTimeout(() => {
-      if (status === 'loading') {
-        setStatus('error');
-        setErrorType('TIMEOUT');
-      }
-    }, 9000);
+      // نتحقق من الحالة بشكل وظيفي لتجنب الـ Stale Closure
+      setStatus((currentStatus) => {
+        if (currentStatus === 'loading') {
+          setErrorType('TIMEOUT');
+          return 'error';
+        }
+        return currentStatus;
+      });
+    }, 30000); 
 
     try {
       const result = await analyzeMealImage(image, { chronicDiseases: "none", dietProgram: "general", activityLevel: "moderate", persona: currentPersona }, language);
       
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
 
       if (result) {
         setLastAnalysisResult(result);
@@ -96,7 +103,10 @@ const Hero: React.FC = () => {
         setStatus('error');
       }
     } catch (err: any) {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
       console.error("Analysis Error:", err);
       setStatus('error');
     }
@@ -139,7 +149,7 @@ const Hero: React.FC = () => {
                 return (
                   <button key={key} onClick={() => { setCurrentPersona(key); setStatus('idle'); }}
                     className={`p-6 rounded-[35px] border transition-all h-[110px] flex flex-col justify-between text-left
-                      ${isActive ? `${conf.color} text-white shadow-xl` : 'bg-white dark:bg-white/5 border-brand-dark/5 dark:border-white/5 text-brand-dark dark:text-white/40 hover:border-brand-primary/30'}`}
+                      ${isActive ? `${conf.color} text-white shadow-xl scale-105` : 'bg-white dark:bg-white/5 border-brand-dark/5 dark:border-white/5 text-brand-dark dark:text-white/40 hover:border-brand-primary/30'}`}
                   >
                     <div className="flex justify-between">{conf.icon} {isActive && <Check size={14} />}</div>
                     <span className="text-sm font-serif font-bold">{conf.label}</span>
@@ -164,7 +174,7 @@ const Hero: React.FC = () => {
                               <h3 className="text-2xl font-serif font-bold italic tracking-widest animate-pulse">
                                 {isAr ? 'فك شفرة البيانات...' : 'Decoding Matrix...'}
                               </h3>
-                              <p className="text-[10px] text-white/40 mt-4 tracking-widest uppercase">Vercel Fast-Path Active</p>
+                              <p className="text-[10px] text-white/40 mt-4 tracking-widest uppercase">Deep Bio-Analysis Engaged</p>
                            </div>
                         </div>
                       )}
@@ -189,16 +199,16 @@ const Hero: React.FC = () => {
 
                       {status === 'error' && (
                         <div className="absolute inset-0 bg-brand-dark/90 backdrop-blur-lg flex flex-col items-center justify-center p-12 text-center text-white z-50">
-                           <AlertCircle size={60} className="text-red-500 mb-4" />
+                           <AlertCircle size={60} className="text-red-500 mb-4 animate-pulse" />
                            <h3 className="text-xl font-serif font-bold mb-2">
                              {errorType === 'TIMEOUT' 
-                               ? (isAr ? 'انتهت المهلة - السيرفر بطيء' : 'Timeout - Server Slow') 
+                               ? (isAr ? 'السيرفر بطيء - جاري الانتظار' : 'Server Delay - Still Waiting') 
                                : (isAr ? 'فشل التحليل' : 'Analysis Failed')}
                            </h3>
                            <p className="text-sm text-white/40 mb-8 italic">
-                             {isAr ? 'حاول استخدام صورة أصغر أو شبكة أسرع' : 'Try a smaller image or faster network'}
+                             {isAr ? 'تأكد من استقرار الإنترنت وأعد المحاولة' : 'Check connection stability and retry'}
                            </p>
-                           <button onClick={handleAnalyze} className="px-10 py-4 bg-brand-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-glow">
+                           <button onClick={handleAnalyze} className="px-10 py-4 bg-brand-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-glow hover:scale-105 transition-transform">
                               {isAr ? 'إعادة المحاولة' : 'RETRY NOW'}
                            </button>
                            <button onClick={resetScanner} className="mt-6 text-white/40 text-[10px] font-black uppercase tracking-widest underline">
@@ -222,7 +232,7 @@ const Hero: React.FC = () => {
                          <UploadCloud size={48} className="group-hover:-translate-y-2 transition-transform" />
                       </div>
                       <h4 className="text-2xl font-serif font-bold text-brand-dark/30 dark:text-white/30 group-hover:text-brand-primary transition-colors">{isAr ? 'ارفع صورة الوجبة' : 'Upload Meal Image'}</h4>
-                      <p className="mt-4 text-[9px] font-black uppercase tracking-[0.4em] text-brand-dark/20 dark:text-white/10">{isAr ? 'نظام المسح السريع مفعل' : 'ULTRA-FAST SCAN ACTIVE'}</p>
+                      <p className="mt-4 text-[9px] font-black uppercase tracking-[0.4em] text-brand-dark/20 dark:text-white/10">{isAr ? 'نظام التحليل الفائق نشط' : 'SUPER-ANALYSIS SYSTEM ACTIVE'}</p>
                    </div>
                 )}
              </div>

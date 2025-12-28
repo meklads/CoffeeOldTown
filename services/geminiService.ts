@@ -11,17 +11,16 @@ const getAI = () => {
 export const analyzeMealImage = async (base64Image: string, profile: UserHealthProfile, lang: string = 'en'): Promise<MealAnalysisResult | null> => {
   try {
     const ai = getAI();
-    // تنظيف بيانات الصورة
     const base64Data = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
     const persona = profile?.persona || 'GENERAL';
 
-    // استخدام gemini-3-flash-preview مع إعدادات السرعة القصوى
+    // استخدام موديل فلاش مع إعدادات السرعة القصوى
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: {
         parts: [
           { inlineData: { data: base64Data, mimeType: 'image/jpeg' } },
-          { text: `Quick Bio-Analysis for ${persona}. Language: ${lang}. Return JSON only.` }
+          { text: `Quick Bio-Scan for ${persona}. Language: ${lang}. Output JSON only.` }
         ]
       },
       config: {
@@ -38,14 +37,12 @@ export const analyzeMealImage = async (base64Image: string, profile: UserHealthP
           },
           required: ["ingredients", "totalCalories", "healthScore", "macros", "summary", "personalizedAdvice"]
         },
-        temperature: 0.1,
-        thinkingConfig: { thinkingBudget: 0 } // إلغاء التفكير لسرعة الرد
+        temperature: 0.1, // لضمان رد تقني وسريع
+        thinkingConfig: { thinkingBudget: 0 } 
       }
     });
 
-    if (!response || !response.text) {
-      throw new Error("EMPTY_AI_RESPONSE");
-    }
+    if (!response || !response.text) throw new Error("EMPTY_RESPONSE");
 
     const data = JSON.parse(response.text.trim());
     return { ...data, imageUrl: base64Image, timestamp: new Date().toLocaleString() };
@@ -63,7 +60,7 @@ export const generateMealPlan = async (request: MealPlanRequest, lang: string, f
     
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview', 
-      contents: `Direct 1-day ${persona} meal plan for ${request.goal} in ${language}. Return JSON.`,
+      contents: `Quick 1-day ${persona} meal plan for ${request.goal} in ${language}. JSON only.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
