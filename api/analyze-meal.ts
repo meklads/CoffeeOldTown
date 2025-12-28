@@ -1,6 +1,7 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
+// إعدادات Vercel للتعامل مع الصور الكبيرة والوقت الطويل للتحليل
 export const config = {
   maxDuration: 60,
   api: {
@@ -42,6 +43,7 @@ const mealAnalysisSchema = {
 };
 
 export default async function handler(req: any, res: any) {
+  // تفعيل CORS للسماح بالطلبات من الواجهة الأمامية
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -52,7 +54,7 @@ export default async function handler(req: any, res: any) {
   const { image, profile, lang } = req.body;
 
   if (!process.env.API_KEY) {
-    return res.status(500).json({ error: 'SYSTEM_FAULT: API key missing.' });
+    return res.status(500).json({ error: 'SYSTEM_FAULT: API key missing on server environment.' });
   }
 
   if (!image) {
@@ -61,16 +63,16 @@ export default async function handler(req: any, res: any) {
 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    // تنظيف بيانات الصورة (إزالة الـ prefix إذا وجد)
     const base64Data = image.includes(',') ? image.split(',')[1] : image;
     const persona = profile?.persona || 'GENERAL';
 
     const prompt = lang === 'ar' 
-      ? `حلل هذا الطبق بدقة مذهلة لشخص يتبع بروتوكول ${persona}. قدم النتيجة باللغة العربية حصراً وبتنسيق JSON.`
-      : `Analyze this dish with clinical precision for a user following the ${persona} protocol. Response must be entirely in English and formatted as JSON.`;
+      ? `قم بتحليل هذه الوجبة بدقة لمستخدم بروتوكول ${persona}. ركز على السعرات والماكروز. النتيجة يجب أن تكون بتنسيق JSON حصراً.`
+      : `Analyze this meal for a user with the ${persona} profile. Focus on calories and macros. Return strictly JSON.`;
 
-    // استخدام Gemini 3 Flash لضمان أداء مستقر وحصة طلبات أوسع
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3-flash-preview', // استخدام نسخة فلاش لاستجابة أسرع في السيرفر
       contents: {
         parts: [
           { inlineData: { data: base64Data, mimeType: 'image/jpeg' } },
@@ -89,27 +91,21 @@ export default async function handler(req: any, res: any) {
     
     return res.status(200).json(JSON.parse(resultText.trim()));
   } catch (error: any) {
-    console.error("Vercel Serverless Error:", error);
+    console.error("Vercel Backend Error:", error);
     
     const errMsg = (error.message || "").toLowerCase();
-    const isQuota = error.status === 429 || 
-                    errMsg.includes("quota") || 
-                    errMsg.includes("limit") || 
-                    errMsg.includes("exhausted") ||
-                    errMsg.includes("reached") ||
-                    errMsg.includes("daily");
+    const isQuota = error.status === 429 || errMsg.includes("quota") || errMsg.includes("limit");
 
     if (isQuota) {
       return res.status(429).json({ 
         error: 'QUOTA_EXCEEDED', 
-        details: 'Shared lab quota reached. Connect personal key for unlimited access.' 
+        details: 'Lab capacity reached. Please use a personal API key.' 
       });
     }
 
     return res.status(500).json({ 
-      error: 'Analysis Failed', 
-      details: error.message,
-      code: error.status || 500
+      error: 'ANALYSIS_FAILED', 
+      details: error.message 
     });
   }
 }

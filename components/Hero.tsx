@@ -93,13 +93,13 @@ const Hero: React.FC = () => {
       setTimeout(() => {
         setIsConnectingKey(false);
         setErrorMsg({
-          title: isAr ? "دليل تفعيل المختبر" : "Lab Activation Guide",
+          title: isAr ? "نظام التشخيص الشخصي" : "Personal Key System",
           detail: isAr 
-            ? "أنت تشاهد النسخة التجريبية حالياً. لربط مفتاحك الشخصي، يرجى تشغيل التطبيق داخل بيئة Google AI Studio أو ترقية خطة الاستضافة."
-            : "You are currently in preview mode. To link your key, launch this app within Google AI Studio or upgrade your hosting plan.",
+            ? "ربط المفاتيح يعمل حالياً فقط داخل بيئة AI Studio. لتجاوز الحد هنا، يرجى المحاولة لاحقاً أو التواصل مع المسؤول."
+            : "Key linking only works within the AI Studio environment. To bypass the limit here, please try again later or contact the administrator.",
           type: 'help'
         });
-      }, 800);
+      }, 1000);
     }
   };
 
@@ -127,7 +127,7 @@ const Hero: React.FC = () => {
         }
         return next;
       });
-    }, 100);
+    }, 120);
 
     try {
       const result = await analyzeMealImage(image, {
@@ -145,36 +145,22 @@ const Hero: React.FC = () => {
         setLastAnalysisResult(finalResult);
         incrementScans(finalResult);
         setStatus('success');
-      } else {
-        throw new Error("EMPTY_RESULT");
       }
     } catch (err: any) {
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       setStatus('error');
       
-      const errorStr = (err.message || "").toUpperCase();
-      const isQuotaError = errorStr.includes("QUOTA") || 
-                           errorStr.includes("LIMIT") || 
-                           errorStr.includes("REACHED") || 
-                           errorStr.includes("DAILY") || 
-                           errorStr.includes("429") || 
-                           errorStr.includes("EXHAUSTED");
+      const isQuota = err.message === "QUOTA_EXCEEDED";
       
-      if (isQuotaError) {
-        setErrorMsg({
-          title: isAr ? "صيانة النظام الأيضي" : "System Maintenance",
-          detail: isAr 
-            ? "وصل المختبر المشترك للحد الأقصى من الطلبات اليومية. الأولوية حالياً للمفاتيح الخاصة."
-            : "The shared laboratory reached its daily request limit. Priority given to personal keyholders.",
-          type: 'quota'
-        });
-      } else {
-        setErrorMsg({
-          title: isAr ? "فشل الوحدة النمطية" : "Module Failure",
-          detail: isAr ? `خطأ في المعالجة: ${err.message}` : `Processing fault: ${err.message}`,
-          type: 'general'
-        });
-      }
+      setErrorMsg({
+        title: isQuota 
+          ? (isAr ? "تحجيم الأداء الأيضي" : "Metabolic Throttling")
+          : (isAr ? "فشل الوحدة النمطية" : "Module Failure"),
+        detail: isQuota
+          ? (isAr ? "وصل المختبر العام للحد الأقصى اليومي. للحصول على أداء فوري، يرجى ربط مفتاحك الخاص." : "The shared lab reached its daily limit. For instant performance, please connect your personal key.")
+          : (isAr ? `خطأ تقني: ${err.message}` : `Technical fault: ${err.message}`),
+        type: isQuota ? 'quota' : 'general'
+      });
     }
   };
 
@@ -207,11 +193,9 @@ const Hero: React.FC = () => {
       setStatus('processing');
       const reader = new FileReader();
       reader.onloadend = () => { 
-        setTimeout(() => {
-          setImage(reader.result as string);
-          setStatus('idle'); 
-          setProgress(0);
-        }, 500);
+        setImage(reader.result as string);
+        setStatus('idle'); 
+        setProgress(0);
       };
       reader.readAsDataURL(file);
     }
@@ -360,20 +344,6 @@ const Hero: React.FC = () => {
                                {isAr ? 'إعادة التشغيل' : 'RESTART SYSTEM'}
                             </button>
                          </div>
-                         
-                         {errorMsg.type === 'help' && (
-                           <div className="mt-6 flex flex-col gap-2">
-                             <a 
-                               href="https://ai.google.dev/gemini-api/docs/billing" 
-                               target="_blank" 
-                               rel="noopener noreferrer"
-                               className="flex items-center justify-center gap-2 text-[8px] text-white/30 uppercase tracking-widest font-black hover:text-brand-primary transition-colors"
-                             >
-                               <ExternalLink size={10} />
-                               {isAr ? 'دليل الفوترة والأسعار' : 'BILLING & QUOTA GUIDE'}
-                             </a>
-                           </div>
-                         )}
                       </div>
                     ) : status === 'success' && lastAnalysisResult ? (
                       <div className="w-full space-y-4 lg:space-y-6 animate-fade-in h-full flex flex-col justify-center">

@@ -1,11 +1,6 @@
 
 import { UserHealthProfile, MealAnalysisResult, MealPlanRequest, DayPlan, FeedbackEntry } from '../types.ts';
 
-/**
- * هذا الملف الآن يعمل كوسيط (Proxy) بين الواجهة الأمامية ووظائف Vercel الخلفية.
- * هذا يضمن أن مفتاح API يبقى سرياً ويعمل دائماً على Vercel.
- */
-
 export const analyzeMealImage = async (base64Image: string, profile: UserHealthProfile, lang: string = 'en'): Promise<MealAnalysisResult | null> => {
   try {
     const response = await fetch('/api/analyze-meal', {
@@ -16,13 +11,16 @@ export const analyzeMealImage = async (base64Image: string, profile: UserHealthP
 
     if (!response.ok) {
       const errorData = await response.json();
-      if (errorData.error === 'SYSTEM_FAULT: API key missing.') throw new Error("MISSING_KEY");
+      // إذا كان الخطأ متعلق بالحصة، نرمي خطأ مخصص لتعرفه الواجهة
+      if (response.status === 429 || errorData.error === 'QUOTA_EXCEEDED') {
+        throw new Error("QUOTA_EXCEEDED");
+      }
       throw new Error(errorData.details || "API_ERROR");
     }
 
     return await response.json();
   } catch (error: any) {
-    console.error("Client Analysis Error:", error);
+    console.error("Client Service Error:", error);
     throw error;
   }
 };
@@ -35,7 +33,10 @@ export const generateMealPlan = async (request: MealPlanRequest, lang: string, f
       body: JSON.stringify({ request, lang, feedback })
     });
 
-    if (!response.ok) throw new Error("PLAN_GENERATION_FAILED");
+    if (!response.ok) {
+      if (response.status === 429) throw new Error("QUOTA_EXCEEDED");
+      throw new Error("PLAN_GENERATION_FAILED");
+    }
 
     return await response.json();
   } catch (error: any) {
@@ -57,12 +58,10 @@ export const generateMascot = async (prompt: string): Promise<string | null> => 
     const data = await response.json();
     return data.imageUrl;
   } catch (error) {
-    console.error("Client Mascot Error:", error);
     return null;
   }
 };
 
 export const isSystemKeyAvailable = async (): Promise<boolean> => {
-  // بما أننا نستخدم API Routes، المفتاح دائماً متاح على السيرفر
-  return true;
+  return true; // المفتاح موجود في Vercel Env
 };
