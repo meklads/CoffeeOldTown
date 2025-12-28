@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Utensils, Zap, HeartPulse, Baby, ShieldAlert, Check, BrainCircuit, RefreshCcw, UploadCloud, AlertCircle, Sparkles } from 'lucide-react';
+import { Utensils, Zap, HeartPulse, Baby, ShieldAlert, Check, BrainCircuit, RefreshCcw, UploadCloud, AlertCircle, Sparkles, Info } from 'lucide-react';
 import { SectionId, BioPersona } from '../types.ts';
 import { useApp } from '../context/AppContext.tsx';
 import { analyzeMealImage } from '../services/geminiService.ts';
@@ -9,6 +9,7 @@ const Hero: React.FC = () => {
   const { incrementScans, setLastAnalysisResult, lastAnalysisResult, currentPersona, setCurrentPersona, language } = useApp();
   const [image, setImage] = useState<string | null>(lastAnalysisResult?.imageUrl || null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'error' | 'success'>(lastAnalysisResult ? 'success' : 'idle');
+  const [showTooltip, setShowTooltip] = useState(false);
   
   const isAr = language === 'ar';
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -22,10 +23,9 @@ const Hero: React.FC = () => {
 
   const currentConf = personaConfigs[currentPersona];
 
-  // مزامنة البروتوكولات: إذا تغير القسم ومعنا صورة، نعطي خيار إعادة التحليل
   useEffect(() => {
-    if (image && status === 'success') {
-      setStatus('idle'); // العودة للحالة الجاهزة لإعادة التحليل بالبروتوكول الجديد
+    if (image && status === 'success' && lastAnalysisResult?.imageUrl !== image) {
+      setStatus('idle');
     }
   }, [currentPersona]);
 
@@ -35,7 +35,7 @@ const Hero: React.FC = () => {
       img.src = base64Str;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_DIM = 500; // تصغير أكثر لضمان السرعة القصوى في فيرسال
+        const MAX_DIM = 500;
         let width = img.width;
         let height = img.height;
         if (width > height) { if (width > MAX_DIM) { height *= MAX_DIM / width; width = MAX_DIM; } }
@@ -67,7 +67,6 @@ const Hero: React.FC = () => {
     setStatus('loading');
 
     try {
-      // إرسال الطلب مع مهلة أمان بسيطة في الواجهة
       const result = await analyzeMealImage(image, { chronicDiseases: "none", dietProgram: "general", activityLevel: "moderate", persona: currentPersona }, language);
       if (result) {
         setLastAnalysisResult(result);
@@ -145,7 +144,28 @@ const Hero: React.FC = () => {
                       {status === 'success' && lastAnalysisResult && (
                         <div className="absolute inset-x-6 bottom-6 bg-white/95 dark:bg-brand-dark/95 backdrop-blur-2xl rounded-[45px] p-8 border border-brand-primary/20 shadow-glow animate-fade-in-up z-50">
                            <div className="flex justify-between items-start mb-4">
-                              <h4 className="text-2xl font-serif font-bold text-brand-dark dark:text-white">{lastAnalysisResult.summary}</h4>
+                              <div className="space-y-1">
+                                <h4 className="text-2xl font-serif font-bold text-brand-dark dark:text-white">{lastAnalysisResult.summary}</h4>
+                                <div 
+                                  className="relative inline-flex items-center gap-2 px-3 py-1 bg-brand-primary/10 rounded-full border border-brand-primary/20 cursor-help group/health"
+                                  onMouseEnter={() => setShowTooltip(true)}
+                                  onMouseLeave={() => setShowTooltip(false)}
+                                >
+                                  <span className="text-[9px] font-black text-brand-primary uppercase tracking-widest">
+                                    {isAr ? 'درجة الصحة' : 'HEALTH SCORE'}: {lastAnalysisResult.healthScore}%
+                                  </span>
+                                  <Info size={10} className="text-brand-primary" />
+                                  
+                                  {showTooltip && (
+                                    <div className="absolute bottom-full left-0 mb-3 w-64 p-4 bg-brand-dark text-white text-[10px] font-medium italic rounded-2xl shadow-4xl animate-fade-in-up z-[60] border border-white/10">
+                                      <div className="absolute bottom-0 left-6 translate-y-1/2 w-3 h-3 bg-brand-dark border-r border-b border-white/10 rotate-45" />
+                                      {isAr 
+                                        ? 'مقياس التوافق الأيضي (0-100) بناءً على جودة المكونات، توازن الماكروز، ومدى ملاءمة الوجبة لبروتوكولك الحيوي المختار.'
+                                        : 'Metabolic alignment score (0-100) based on ingredient quality, macro balance, and compatibility with your selected bio-protocol.'}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
                               <button onClick={resetScanner} className="p-2 text-brand-primary hover:bg-brand-primary/10 rounded-full transition-all">
                                 <RefreshCcw size={20} />
                               </button>
