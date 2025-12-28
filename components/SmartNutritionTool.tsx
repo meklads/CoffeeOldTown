@@ -34,8 +34,8 @@ const SmartNutritionTool: React.FC = () => {
         feedbackHistory
       );
       
-      // Safety check: ensure plan and its primary expected meals exist
-      if (plan && (plan.breakfast || plan.lunch || plan.dinner)) {
+      // Safety check: ensure plan and its primary expected meals exist, and it's not an error response
+      if (plan && !('error' in plan) && (plan.breakfast || plan.lunch || plan.dinner)) {
         setResult(plan);
         // Defer scroll to ensure DOM has updated with the results
         requestAnimationFrame(() => {
@@ -46,7 +46,8 @@ const SmartNutritionTool: React.FC = () => {
           }, 150);
         });
       } else {
-        throw new Error("Malformed Response");
+        const errorMsg = (plan as any)?.message || "Malformed Response";
+        throw new Error(errorMsg);
       }
     } catch (err: any) {
       console.error("Synthesis failed:", err);

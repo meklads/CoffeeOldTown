@@ -73,23 +73,22 @@ export default async function handler(req: any, res: any) {
     const goal = request.goal;
     const language = lang === 'ar' ? 'Arabic (العربية)' : 'English';
 
-    const prompt = `Act as a World-Class Metabolic Scientist.
-    Goal: ${goal}
-    User Bio-Persona: ${persona}
-    User Feedback: ${JSON.stringify(feedback || [])}
-    Language: ${language}
-
-    TASK: Create a 1-day precision meal plan.
-    Strictly return JSON.`;
+    const systemInstruction = `You are a World-Class Metabolic Scientist at "Coffee Old Town Lab".
+    Your task is to synthesize a high-precision 1-day meal plan optimized for the user's bio-persona and goal.
+    Bio-Persona: ${persona}
+    Target Goal: ${goal}
+    User Historical Data: ${JSON.stringify(feedback || [])}
+    All text output must be in ${language}.`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
-      contents: prompt,
+      model: 'gemini-3-flash-preview',
+      contents: "Generate the metabolic blueprint for today. Strictly follow the JSON schema.",
       config: { 
+        systemInstruction,
         responseMimeType: "application/json",
         responseSchema: dayPlanSchema,
-        temperature: 0.3,
-        thinkingConfig: { thinkingBudget: 10000 } // استخدام التفكير العميق للخطة
+        temperature: 0.2,
+        thinkingConfig: { thinkingBudget: 0 } // Flash-preview is fast and reliable without deep thinking for this task
       }
     });
 
@@ -99,6 +98,6 @@ export default async function handler(req: any, res: any) {
     return res.status(200).json(JSON.parse(text.trim()));
   } catch (error: any) {
     console.error("Plan Generation Error:", error);
-    return res.status(500).json({ error: 'PLAN_FAILED', details: error.message });
+    return res.status(500).json({ error: 'PLAN_FAILED', message: error.message });
   }
 }
