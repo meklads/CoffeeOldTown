@@ -1,16 +1,9 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { RotateCcw, Baby, HeartPulse, Zap, Camera, Utensils, ShieldAlert, Terminal, Settings, ArrowRight, RefreshCw, Key, UploadCloud, Check, AlertCircle, Link as LinkIcon } from 'lucide-react';
+import { RotateCcw, Baby, HeartPulse, Zap, Camera, Utensils, ShieldAlert, Terminal, Settings, ArrowRight, RefreshCw, Key, UploadCloud, Check, AlertCircle } from 'lucide-react';
 import { SectionId, BioPersona } from '../types.ts';
 import { useApp } from '../context/AppContext.tsx';
 import { analyzeMealImage } from '../services/geminiService.ts';
-
-// Fix: Use the globally expected AIStudio type and modifiers to avoid declaration conflicts
-declare global {
-  interface Window {
-    readonly aistudio: AIStudio;
-  }
-}
 
 const Hero: React.FC = () => {
   const { incrementScans, setLastAnalysisResult, lastAnalysisResult, currentPersona, setCurrentPersona, language, setView } = useApp();
@@ -37,13 +30,18 @@ const Hero: React.FC = () => {
 
   const currentConf = personaConfigs[currentPersona];
 
+  // وظيفة لفتح حوار المفتاح مع حماية ضد البيئات الخارجية
   const handleKeySetup = async () => {
-    try {
-      await window.aistudio.openSelectKey();
-      // المضي قدماً مباشرة بعد فتح الحوار كما تنص القواعد
+    if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
+      try {
+        await window.aistudio.openSelectKey();
+        if (image) handleAnalyze();
+      } catch (e) {
+        console.error("Key selection failed");
+      }
+    } else {
+      // إذا كنا على فيرسال، المفتاح موجود في env بالفعل
       if (image) handleAnalyze();
-    } catch (e) {
-      console.error("Key selection failed");
     }
   };
 
@@ -73,6 +71,7 @@ const Hero: React.FC = () => {
         const compressed = await compressImage(reader.result as string);
         setImage(compressed);
         setStatus('idle');
+        setErrorMsg(null);
       };
       reader.readAsDataURL(file);
     }
@@ -88,16 +87,26 @@ const Hero: React.FC = () => {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleAnalyze = async () => {
+  const handleAnalyze = async (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     if (!image || status === 'loading') return;
     
-    // التحقق من وجود مفتاح أولاً لتجنب فشل فيرسال
-    const hasKey = await window.aistudio.hasSelectedApiKey();
-    if (!hasKey && !process.env.API_KEY) {
+    // التحقق من البيئة والمفتاح
+    let hasKey = !!process.env.API_KEY;
+    if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
+      const selectedInStudio = await window.aistudio.hasSelectedApiKey();
+      hasKey = hasKey || selectedInStudio;
+    }
+
+    if (!hasKey) {
       setStatus('error');
       setErrorMsg({
-        title: isAr ? "تحذير المفتاح" : "AI Key Required",
-        detail: isAr ? "يرجى ربط مفتاح AI الخاص بك للوصول إلى المختبر الأيضي." : "Please link your AI key to access the metabolic lab.",
+        title: isAr ? "ربط المفتاح مطلوب" : "AI Key Required",
+        detail: isAr ? "يرجى ربط مفتاح Gemini الخاص بك لتفعيل القدرات التحليلية." : "Please link your Gemini API key to activate diagnostic capabilities.",
         type: 'key'
       });
       return;
@@ -108,15 +117,15 @@ const Hero: React.FC = () => {
     setErrorMsg(null);
     
     const steps = isAr 
-      ? ['بدء الاتصال العصبي...', 'تشفير البروتوكول المخصص...', 'تحليل البصمة الأيضية...', 'توليد التقرير السريري...'] 
-      : ['Initializing Link...', 'Encoding Protocol...', 'Metabolic Analysis...', 'Generating Report...'];
+      ? ['ضبط المستشعرات...', 'تشفير البروتوكول...', 'تحليل الجزيئات...', 'إتمام التقرير...'] 
+      : ['Adjusting Sensors...', 'Encoding Protocol...', 'Molecular Analysis...', 'Finalizing Report...'];
     
     let currentStepIdx = 0;
     setLoadingStep(steps[0]);
 
     progressIntervalRef.current = window.setInterval(() => {
       setProgress(prev => {
-        const next = prev + 1;
+        const next = prev + 1.5;
         if (next >= 98) return 98;
         const stepIdx = Math.floor((next / 100) * steps.length);
         if (stepIdx !== currentStepIdx && stepIdx < steps.length) {
@@ -125,7 +134,7 @@ const Hero: React.FC = () => {
         }
         return next;
       });
-    }, 45);
+    }, 40);
 
     try {
       const result = await analyzeMealImage(image, {
@@ -148,16 +157,16 @@ const Hero: React.FC = () => {
       setStatus('error');
       
       const isQuota = err.message === "QUOTA_EXCEEDED";
-      const isKeyErr = err.message === "KEY_INVALID";
+      const isKeyInvalid = err.message === "KEY_INVALID" || err.message === "API_KEY_MISSING";
 
       setErrorMsg({
-        title: isKeyErr ? (isAr ? "مفتاح غير صالح" : "Invalid Key") : isQuota ? (isAr ? "ضغط على الشبكة" : "Network Load") : (isAr ? "فشل الارتباط" : "Neural Link Failure"),
-        detail: isKeyErr 
-          ? (isAr ? "حدث خطأ في صلاحية المفتاح، يرجى إعادة اختياره." : "API Key issue detected. Please re-select your key.")
+        title: isKeyInvalid ? (isAr ? "خطأ في المفتاح" : "Key Error") : isQuota ? (isAr ? "ضغط على الشبكة" : "Network Load") : (isAr ? "فشل الارتباط" : "Neural Link Failure"),
+        detail: isKeyInvalid 
+          ? (isAr ? "مفتاح API غير صالح أو لم يتم العثور عليه. يرجى إعادة الربط." : "Invalid API Key or missing configuration.")
           : isQuota 
-            ? (isAr ? "وصلت للحد الأقصى المجاني. انتظر 60 ثانية." : "Google API limit reached. Try again in 60s.")
-            : (isAr ? "لم نتمكن من الوصول للذكاء الاصطناعي من المتصفح." : "Could not establish a stable link with Google AI."),
-        type: isKeyErr ? 'key' : isQuota ? 'quota' : 'general'
+            ? (isAr ? "لقد وصلت لحدود جوجل المجانية. انتظر دقيقة واحدة." : "Google Quota reached. Please wait 60s.")
+            : (isAr ? "حدث خطأ غير متوقع أثناء معالجة البيانات." : "An unexpected error occurred during data processing."),
+        type: isKeyInvalid ? 'key' : isQuota ? 'quota' : 'general'
       });
     }
   };
@@ -171,14 +180,14 @@ const Hero: React.FC = () => {
             <div className="space-y-6">
               <div className="inline-flex items-center gap-3 px-4 py-2 bg-brand-dark dark:bg-white/5 text-brand-primary rounded-full shadow-lg border border-white/5">
                 <ShieldAlert size={14} />
-                <span className="text-[9px] font-black uppercase tracking-[0.4em]">{isAr ? 'نظام تحليل جزيئي مخصص' : 'ELITE METABOLIC ANALYZER'}</span>
+                <span className="text-[9px] font-black uppercase tracking-[0.4em]">{isAr ? 'نظام تحليل جزيئي مخصص' : 'CUSTOM MOLECULAR ANALYSIS'}</span>
               </div>
               <h1 className="text-5xl md:text-7xl font-serif font-bold text-brand-dark dark:text-white tracking-tighter leading-[0.9]">
                 Metabolic <br /> 
                 <span className={`${currentConf.accent} italic font-normal transition-colors duration-700`}>{isAr ? 'التشخيص.' : 'Diagnostics.'}</span>
               </h1>
               <p className="text-brand-dark/50 dark:text-white/40 text-lg font-medium italic leading-relaxed max-w-sm">
-                {isAr ? 'اختر بروتوكولاً لضبط الذكاء الاصطناعي وفقاً لاحتياجاتك الحيوية.' : 'Select a protocol to calibrate AI towards your specific bio-needs.'}
+                {isAr ? 'ارفع صورة وجبتك وسيقوم الذكاء الاصطناعي بتشريحها لك.' : 'Upload your meal and let the AI dissect it for you.'}
               </p>
             </div>
 
@@ -206,13 +215,6 @@ const Hero: React.FC = () => {
                   </button>
                 );
               })}
-            </div>
-            
-            <div className="pt-6 hidden lg:block">
-               <div className="flex items-center gap-4 text-brand-dark/20 dark:text-white/10 uppercase font-black text-[9px] tracking-[0.4em]">
-                  <Settings size={14} className="animate-spin-slow" />
-                  <span>{isAr ? 'تحليل ذكاء اصطناعي محسن للبيانات المتخصصة' : 'AI OPTIMIZED FOR SPECIALIZED ANALYSIS'}</span>
-               </div>
             </div>
           </div>
 
@@ -284,10 +286,10 @@ const Hero: React.FC = () => {
                            <div className="flex flex-col gap-3 w-full max-w-[240px]">
                               {errorMsg.type === 'key' ? (
                                 <button onClick={handleKeySetup} className="bg-white text-brand-dark px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-brand-primary hover:text-white transition-all shadow-2xl flex items-center justify-center gap-2">
-                                  <Key size={14} /> {isAr ? 'ربط المفتاح العصبي' : 'CONNECT NEURAL KEY'}
+                                  <Key size={14} /> {isAr ? 'ضبط المفتاح العصبي' : 'CONNECT NEURAL KEY'}
                                 </button>
                               ) : (
-                                <button onClick={handleAnalyze} className="bg-white text-red-600 px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-brand-dark hover:text-white transition-all shadow-2xl flex items-center justify-center gap-2">
+                                <button onClick={(e) => handleAnalyze(e)} className="bg-white text-red-600 px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-brand-dark hover:text-white transition-all shadow-2xl flex items-center justify-center gap-2">
                                   <RefreshCw size={14} /> {isAr ? 'إعادة المحاولة' : 'RETRY LINK'}
                                 </button>
                               )}
@@ -299,10 +301,12 @@ const Hero: React.FC = () => {
                       )}
 
                       {status === 'idle' && (
-                         <div className="absolute inset-0 flex items-center justify-center bg-brand-dark/40 group-hover:bg-brand-dark/20 transition-all z-40">
+                         <div 
+                          className="absolute inset-0 flex items-center justify-center bg-brand-dark/40 group-hover:bg-brand-dark/20 transition-all z-40 cursor-pointer"
+                          onClick={(e) => handleAnalyze(e)}
+                         >
                             <button 
-                              onClick={handleAnalyze}
-                              className={`w-28 h-28 rounded-full flex items-center justify-center shadow-glow animate-pulse hover:scale-110 transition-transform ${currentConf.color} text-white`}
+                              className={`w-28 h-28 rounded-full flex items-center justify-center shadow-glow animate-pulse hover:scale-110 transition-transform ${currentConf.color} text-white pointer-events-none`}
                             >
                                <Zap size={44} fill="currentColor" />
                             </button>
@@ -322,12 +326,6 @@ const Hero: React.FC = () => {
                       <div className="space-y-4">
                          <h4 className="text-3xl font-serif font-bold text-brand-dark/60 dark:text-white/40 italic">{isAr ? 'المختبر جاهز للمسح' : 'Biometric Lab Ready.'}</h4>
                          <p className="text-[10px] font-black text-brand-dark/20 dark:text-white/10 uppercase tracking-[0.5em]">{isAr ? 'ارفع صورة الوجبة لبدء التشخيص المباشر' : 'UPLOAD SPECIMEN TO ANALYZE'}</p>
-                      </div>
-                      <div className="flex flex-col items-center gap-2">
-                        <span className={`text-[8px] font-black uppercase tracking-widest ${currentConf.accent}`}>{isAr ? 'البروتوكول الفعال:' : 'ACTIVE_PROTOCOL:'} {currentConf.label}</span>
-                        <div className={`w-32 h-1 rounded-full ${currentConf.bg} overflow-hidden`}>
-                           <div className={`h-full w-full animate-scan ${currentConf.color}`} />
-                        </div>
                       </div>
                    </div>
                 )}
