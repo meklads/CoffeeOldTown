@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { ShieldPlus, Zap, Activity, Sun, CloudSun, Moon, ArrowUpRight, BrainCircuit, AlertCircle, Beaker, Atom, Sparkles } from 'lucide-react';
+import { ShieldPlus, Zap, Activity, Sun, CloudSun, Moon, ArrowUpRight, BrainCircuit, AlertCircle, Sparkles, Atom, RefreshCw } from 'lucide-react';
 import { SectionId, DayPlan } from '../types.ts';
 import { generateMealPlan } from '../services/geminiService.ts';
 import { useApp } from '../context/AppContext.tsx';
@@ -10,15 +10,14 @@ const SmartNutritionTool: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<DayPlan | null>(null);
-  const [loadingStep, setLoadingStep] = useState('');
   const chamberRef = useRef<HTMLDivElement>(null);
 
   const isAr = language === 'ar';
 
   const protocols = [
-    { id: 'immunity', label: isAr ? 'تعزيز المناعة' : 'Immunity Boost', icon: <ShieldPlus size={22} />, img: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800&q=80', color: 'border-orange-500/50', accent: 'text-orange-500' },
-    { id: 'recovery', label: isAr ? 'الاستشفاء الحيوي' : 'Bio-Recovery', icon: <Activity size={22} />, img: 'https://images.unsplash.com/photo-1544022613-e87ca75a784a?w=800&q=80', color: 'border-blue-500/50', accent: 'text-blue-500' },
-    { id: 'focus', label: isAr ? 'التركيز الذهني' : 'Neural Focus', icon: <Zap size={22} />, img: 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=800&q=80', color: 'border-[#C2A36B]/50', accent: 'text-[#C2A36B]' }
+    { id: 'immunity', label: isAr ? 'تعزيز المناعة' : 'Immunity Boost', icon: <ShieldPlus size={22} />, img: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800&q=80', color: 'border-orange-500/50' },
+    { id: 'recovery', label: isAr ? 'الاستشفاء الحيوي' : 'Bio-Recovery', icon: <Activity size={22} />, img: 'https://images.unsplash.com/photo-1544022613-e87ca75a784a?w=800&q=80', color: 'border-blue-500/50' },
+    { id: 'focus', label: isAr ? 'التركيز الذهني' : 'Neural Focus', icon: <Zap size={22} />, img: 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=800&q=80', color: 'border-[#C2A36B]/50' }
   ];
 
   const handleGenerate = async (goalLabel: string) => {
@@ -27,15 +26,17 @@ const SmartNutritionTool: React.FC = () => {
     setLoading(true);
     setError(null);
     setResult(null);
-    setLoadingStep(isAr ? 'تخليق الوجبات الحيوية...' : 'Synthesizing Meals...');
 
     try {
       const plan = await generateMealPlan({ goal: goalLabel, diet: 'balanced', persona: currentPersona }, language, feedbackHistory);
       if (plan) {
         setResult(plan);
         chamberRef.current?.scrollIntoView({ behavior: 'smooth' });
+      } else {
+        throw new Error("Empty Result");
       }
     } catch (err: any) {
+      console.error("Synthesis error:", err);
       setError(isAr ? 'فشل التخليق الحيوي. يرجى المحاولة لاحقاً.' : 'Synthesis failed. Please try again.');
     } finally {
       setLoading(false);
@@ -64,7 +65,7 @@ const SmartNutritionTool: React.FC = () => {
                 className={`group relative overflow-hidden rounded-[45px] border-2 h-[150px] flex flex-col justify-end p-8 text-left transition-all
                   ${selectedGoal === item.label ? `${item.color.replace('/50', '')} shadow-xl scale-[1.02]` : 'bg-white dark:bg-white/5 border-brand-dark/5 dark:border-white/5 grayscale hover:grayscale-0'}`}
               >
-                <div className="absolute inset-0"><img src={item.img} className="w-full h-full object-cover opacity-20" alt={item.label} /><div className="absolute inset-0 bg-brand-dark/40" /></div>
+                <div className="absolute inset-0"><img src={item.img} className="w-full h-full object-cover opacity-20" alt={item.label} /><div className="absolute inset-0 bg-brand-dark/60" /></div>
                 <div className="relative z-10 flex items-center justify-between w-full text-white">
                    <div className="flex items-center gap-4">{item.icon} <h3 className="text-xl font-serif font-bold">{item.label}</h3></div>
                    <ArrowUpRight size={20} />
@@ -78,19 +79,21 @@ const SmartNutritionTool: React.FC = () => {
                 {loading ? (
                   <div className="absolute inset-0 z-50 bg-brand-dark/95 backdrop-blur-xl flex flex-col items-center justify-center p-12 text-center text-white">
                     <Sparkles size={40} className="text-brand-primary animate-pulse mb-8" />
-                    <h4 className="text-2xl font-serif font-bold italic animate-pulse">{loadingStep}</h4>
+                    <h4 className="text-2xl font-serif font-bold italic animate-pulse">{isAr ? 'تخليق الوجبات الحيوية...' : 'Synthesizing Meals...'}</h4>
                   </div>
                 ) : error ? (
                    <div className="absolute inset-0 flex flex-col items-center justify-center p-12 text-center space-y-8">
                      <AlertCircle size={40} className="text-red-500" />
                      <h4 className="text-xl font-serif font-bold text-red-500">{error}</h4>
-                     <button onClick={() => selectedGoal && handleGenerate(selectedGoal)} className="px-10 py-4 bg-brand-dark text-white rounded-2xl">{isAr ? 'إعادة' : 'RETRY'}</button>
+                     <button onClick={() => selectedGoal && handleGenerate(selectedGoal)} className="px-10 py-4 bg-brand-dark text-white rounded-2xl font-black text-[10px] tracking-widest">{isAr ? 'إعادة المحاولة' : 'RETRY'}</button>
                    </div>
                 ) : result ? (
                   <div className="flex flex-col h-full animate-fade-in p-10 overflow-y-auto no-scrollbar">
                     <div className="mb-8 flex justify-between items-center border-b border-brand-dark/5 dark:border-white/5 pb-6">
                        <h3 className="text-3xl font-serif font-bold text-brand-dark dark:text-white">{isAr ? 'المخطط الأيضي' : 'Bio Blueprint.'}</h3>
-                       <div className="bg-brand-primary text-white px-6 py-2 rounded-xl font-bold">{result.totalCalories} KCAL</div>
+                       <button onClick={() => setResult(null)} className="p-2 text-brand-dark/20 hover:text-brand-primary transition-colors bg-brand-dark/5 rounded-full">
+                          <RefreshCw size={18} />
+                       </button>
                     </div>
                     <div className="grid md:grid-cols-3 gap-6">
                        {[ {l: 'Breakfast', i: <Sun />, d: result.breakfast}, {l: 'Lunch', i: <CloudSun />, d: result.lunch}, {l: 'Dinner', i: <Moon />, d: result.dinner} ].map((m, i) => (
@@ -107,7 +110,7 @@ const SmartNutritionTool: React.FC = () => {
                   </div>
                 ) : (
                   <div className="absolute inset-0 flex flex-col items-center justify-center p-12 text-center space-y-10 opacity-20">
-                     <Beaker size={64} className="text-brand-primary" />
+                     <BrainCircuit size={64} className="text-brand-primary" />
                      <h4 className="text-3xl font-serif font-bold italic">{isAr ? 'جاهز للتخليق' : 'Ready for Synthesis.'}</h4>
                   </div>
                 )}

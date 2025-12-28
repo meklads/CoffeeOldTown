@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { RotateCcw, Baby, HeartPulse, Zap, Utensils, ShieldAlert, Check, AlertCircle, Scan, BrainCircuit, RefreshCcw } from 'lucide-react';
+import { Utensils, Zap, HeartPulse, Baby, ShieldAlert, Check, BrainCircuit, Scan, RefreshCcw, UploadCloud } from 'lucide-react';
 import { SectionId, BioPersona } from '../types.ts';
 import { useApp } from '../context/AppContext.tsx';
 import { analyzeMealImage } from '../services/geminiService.ts';
@@ -9,7 +9,6 @@ const Hero: React.FC = () => {
   const { incrementScans, setLastAnalysisResult, lastAnalysisResult, currentPersona, setCurrentPersona, language } = useApp();
   const [image, setImage] = useState<string | null>(lastAnalysisResult?.imageUrl || null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'error' | 'success'>(lastAnalysisResult ? 'success' : 'idle');
-  const [loadingStep, setLoadingStep] = useState('');
   
   const isAr = language === 'ar';
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -38,8 +37,6 @@ const Hero: React.FC = () => {
   const handleAnalyze = async () => {
     if (!image || status === 'loading') return;
     setStatus('loading');
-    setLoadingStep(isAr ? 'فك شفرة المكونات...' : 'Decoding Nutrients...');
-
     try {
       const result = await analyzeMealImage(image, { chronicDiseases: "none", dietProgram: "general", activityLevel: "moderate", persona: currentPersona }, language);
       if (result) {
@@ -93,7 +90,7 @@ const Hero: React.FC = () => {
           </div>
 
           <div className="lg:col-span-7 flex flex-col items-center">
-             <div className={`relative w-full max-w-[500px] aspect-[4/5] bg-white dark:bg-zinc-900 rounded-[60px] border-2 transition-all duration-700 ${currentConf.accent.replace('text-', 'border-')}/20 shadow-4xl overflow-hidden`}>
+             <div className={`relative w-full max-w-[500px] aspect-[4/5] bg-white dark:bg-zinc-900 rounded-[60px] border-2 transition-all duration-700 border-brand-primary/20 shadow-4xl overflow-hidden`}>
                 
                 {image ? (
                    <div className="relative h-full w-full">
@@ -102,20 +99,20 @@ const Hero: React.FC = () => {
                       {status === 'loading' && (
                         <div className="absolute inset-0 bg-brand-dark/80 backdrop-blur-md flex flex-col items-center justify-center p-12 text-center text-white z-50">
                            <Scan size={60} className={`${currentConf.accent} animate-pulse mb-4`} />
-                           <h3 className="text-2xl font-serif font-bold animate-pulse">{loadingStep}</h3>
+                           <h3 className="text-2xl font-serif font-bold animate-pulse">{isAr ? 'فك شفرة المكونات...' : 'Decoding Nutrients...'}</h3>
                         </div>
                       )}
 
                       {status === 'success' && lastAnalysisResult && (
                         <div className="absolute inset-x-6 bottom-6 bg-white/95 dark:bg-brand-dark/95 backdrop-blur-2xl rounded-[45px] p-8 border border-brand-primary/20 shadow-glow animate-fade-in-up z-50">
-                           <div className="flex justify-between items-center mb-6">
+                           <div className="flex justify-between items-start mb-4">
                               <h4 className="text-2xl font-serif font-bold text-brand-dark dark:text-white">{lastAnalysisResult.summary}</h4>
-                              <button onClick={resetScanner} className="p-2 text-brand-dark/20 hover:text-brand-primary transition-colors">
-                                <RefreshCcw size={20} />
+                              <button onClick={resetScanner} className="p-2 text-brand-dark/20 hover:text-brand-primary transition-colors bg-brand-dark/5 rounded-full">
+                                <RefreshCcw size={18} />
                               </button>
                            </div>
                            <div className="flex justify-between items-center mb-6 bg-brand-primary/10 p-4 rounded-2xl">
-                              <span className="text-xs font-black uppercase tracking-widest text-brand-primary">Total Load</span>
+                              <span className="text-[10px] font-black uppercase tracking-widest text-brand-primary">{isAr ? 'إجمالي السعرات' : 'TOTAL LOAD'}</span>
                               <span className="text-2xl font-serif font-bold text-brand-primary">{lastAnalysisResult.totalCalories} KCAL</span>
                            </div>
                            <button onClick={() => fileInputRef.current?.click()} className="w-full py-4 bg-brand-dark text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-primary transition-all">
@@ -135,8 +132,8 @@ const Hero: React.FC = () => {
                    </div>
                 ) : (
                    <div className="h-full w-full flex flex-col items-center justify-center p-12 text-center cursor-pointer group" onClick={() => fileInputRef.current?.click()}>
-                      <div className={`w-32 h-32 rounded-[45px] border-2 border-dashed border-brand-primary/20 text-brand-primary/40 group-hover:text-brand-primary transition-all flex items-center justify-center mb-8`}>
-                         <Utensils size={48} />
+                      <div className="w-32 h-32 rounded-[45px] border-2 border-dashed border-brand-primary/20 text-brand-primary/40 group-hover:text-brand-primary transition-all flex items-center justify-center mb-8">
+                         <UploadCloud size={48} />
                       </div>
                       <h4 className="text-2xl font-serif font-bold text-brand-dark/30 dark:text-white/30">{isAr ? 'ارفع صورة الوجبة' : 'Upload Meal Image'}</h4>
                    </div>
