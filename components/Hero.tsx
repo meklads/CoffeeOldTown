@@ -5,14 +5,15 @@ import { SectionId, BioPersona } from '../types.ts';
 import { useApp } from '../context/AppContext.tsx';
 import { analyzeMealImage } from '../services/geminiService.ts';
 
-// Fix: Use inline type definition in global declaration to resolve naming and modifier conflicts.
-// This ensures that the global Window interface is augmented correctly in the module scope.
+// Define the AIStudio interface to resolve conflicting global property declarations.
+interface AIStudio {
+  hasSelectedApiKey(): Promise<boolean>;
+  openSelectKey(): Promise<void>;
+}
+
 declare global {
   interface Window {
-    aistudio?: {
-      hasSelectedApiKey(): Promise<boolean>;
-      openSelectKey(): Promise<void>;
-    };
+    aistudio?: AIStudio;
   }
 }
 
