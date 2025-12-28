@@ -23,49 +23,46 @@ const Hero: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const progressIntervalRef = useRef<number | null>(null);
 
-  useEffect(() => {
-    if (lastAnalysisResult && !image) {
-      setImage(lastAnalysisResult.imageUrl || null);
-      setStatus('success');
-    }
-  }, [lastAnalysisResult, image]);
+  // وظيفة لضغط الصورة وتصغير حجمها لضمان التوافق مع Vercel
+  const compressImage = (base64: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = base64;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 1000; // حجم مثالي للذكاء الاصطناعي
+        let width = img.width;
+        let height = img.height;
 
-  const personaConfigs: Record<BioPersona, { label: string, icon: React.ReactNode, slogan: string, color: string, border: string, accent: string }> = {
-    GENERAL: { 
-      label: isAr ? 'عام' : 'GENERAL', 
-      icon: <Utensils size={14} />, 
-      slogan: isAr ? 'يومي' : 'Daily',
-      color: 'bg-[#C2A36B]',
-      accent: 'text-[#C2A36B]',
-      border: 'border-[#C2A36B]'
-    },
-    PREGNANCY: { 
-      label: isAr ? 'حمل' : 'PREGNANCY', 
-      icon: <Baby size={14} />, 
-      slogan: isAr ? 'نمو' : 'Growth',
-      color: 'bg-[#E5C1CD]',
-      accent: 'text-[#E5C1CD]',
-      border: 'border-[#E5C1CD]'
-    },
-    DIABETIC: { 
-      label: isAr ? 'سكري' : 'DIABETIC', 
-      icon: <HeartPulse size={14} />, 
-      slogan: isAr ? 'توازن' : 'Sync',
-      color: 'bg-[#64B5F6]',
-      accent: 'text-[#64B5F6]',
-      border: 'border-[#64B5F6]'
-    },
-    ATHLETE: { 
-      label: isAr ? 'رياضي' : 'ATHLETE', 
-      icon: <Zap size={14} />, 
-      slogan: isAr ? 'أداء' : 'Power',
-      color: 'bg-[#FF7043]',
-      accent: 'text-[#FF7043]',
-      border: 'border-[#FF7043]'
-    }
+        if (width > MAX_WIDTH) {
+          height *= MAX_WIDTH / width;
+          width = MAX_WIDTH;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        // ضغط بجودة 0.7 لتقليل الحجم بشكل كبير مع الحفاظ على التفاصيل
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      };
+    });
   };
 
-  const activeConfig = personaConfigs[currentPersona];
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setStatus('processing');
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const compressed = await compressImage(reader.result as string);
+        setImage(compressed);
+        setStatus('idle');
+        setProgress(0);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleReset = () => {
     setImage(null);
@@ -82,7 +79,6 @@ const Hero: React.FC = () => {
   const handleConnectPersonalKey = async () => {
     const aistudio = (window as any).aistudio;
     setIsConnectingKey(true);
-    
     if (aistudio && typeof aistudio.openSelectKey === 'function') {
       try {
         await aistudio.openSelectKey();
@@ -94,10 +90,10 @@ const Hero: React.FC = () => {
       setTimeout(() => {
         setIsConnectingKey(false);
         setErrorMsg({
-          title: isAr ? "نظام الربط الخارجي" : "External Key System",
+          title: isAr ? "نظام الربط الشخصي" : "Personal Key Link",
           detail: isAr 
-            ? "الربط التلقائي متاح في AI Studio. للنشر العام، يرجى ضبط API_KEY في إعدادات Vercel."
-            : "Auto-linking is for AI Studio. For public deploy, set API_KEY in Vercel Environment Variables.",
+            ? "الربط متاح في AI Studio. للنشر الخارجي، يجب إضافة API_KEY في إعدادات Vercel." 
+            : "Direct link is for AI Studio. For public use, add API_KEY to Vercel Settings.",
           type: 'help'
         });
       }, 1000);
@@ -111,15 +107,15 @@ const Hero: React.FC = () => {
     setErrorMsg(null);
     
     const steps = isAr 
-      ? ['تنشيط النظام...', 'مسح جزيئي عميق...', 'تحليل بصمة الأيض...', 'توليد التقرير السريري...'] 
-      : ['Activating System...', 'Molecular Deep Scan...', 'Metabolic Analysis...', 'Synthesizing Report...'];
+      ? ['ضغط البيانات...', 'تشفير العينة...', 'تحليل بصمة الأيض...', 'توليد التقرير...'] 
+      : ['Compressing Data...', 'Encrypting Specimen...', 'Metabolic Analysis...', 'Synthesizing Report...'];
     
     let currentStepIdx = 0;
     setLoadingStep(steps[0]);
 
     progressIntervalRef.current = window.setInterval(() => {
       setProgress(prev => {
-        const next = prev + Math.floor(Math.random() * 5) + 1;
+        const next = prev + Math.floor(Math.random() * 8) + 1;
         if (next >= 99) return 99;
         const stepIdx = Math.floor((next / 100) * steps.length);
         if (stepIdx !== currentStepIdx && stepIdx < steps.length) {
@@ -128,7 +124,7 @@ const Hero: React.FC = () => {
         }
         return next;
       });
-    }, 120);
+    }, 100);
 
     try {
       const result = await analyzeMealImage(image, {
@@ -153,12 +149,10 @@ const Hero: React.FC = () => {
       const isQuota = err.message === "QUOTA_EXCEEDED";
       
       setErrorMsg({
-        title: isQuota 
-          ? (isAr ? "تحجيم الأداء الأيضي" : "Metabolic Throttling")
-          : (isAr ? "خطأ في المعالجة" : "Processing Fault"),
+        title: isQuota ? (isAr ? "تحجيم الأداء" : "Throttling") : (isAr ? "فشل الوحدة" : "Module Fault"),
         detail: isQuota
-          ? (isAr ? "تم الوصول للحد الأقصى للطلبات المجانية. يرجى الانتظار قليلاً أو إضافة مفتاحك الخاص." : "Shared lab capacity reached. Please wait a moment or provide your own API key in Vercel settings.")
-          : (isAr ? `تعذر الاتصال بالوحدة: ${err.message}` : `Unit connection failed: ${err.message}`),
+          ? (isAr ? "وصل المفتاح المشترك للحد الأقصى. يرجى استخدام مفتاحك الخاص في Vercel." : "API Limit reached. Please set your own API_KEY in Vercel Environment Variables.")
+          : (isAr ? `خطأ تقني: ${err.message}` : `Technical Error: ${err.message}`),
         type: isQuota ? 'quota' : 'general'
       });
     }
@@ -167,12 +161,11 @@ const Hero: React.FC = () => {
   const handleShare = async () => {
     if (!lastAnalysisResult) return;
     const shareText = isAr 
-      ? `📊 تقرير التغذية من Old Town Lab:\n📝 ${lastAnalysisResult.summary}\n🔥 السعرات: ${lastAnalysisResult.totalCalories}`
-      : `📊 Old Town Lab Nutrition Report:\n📝 ${lastAnalysisResult.summary}\n🔥 Calories: ${lastAnalysisResult.totalCalories}`;
-
+      ? `📊 تقرير التغذية:\n📝 ${lastAnalysisResult.summary}\n🔥 السعرات: ${lastAnalysisResult.totalCalories}`
+      : `📊 Nutrition Report:\n📝 ${lastAnalysisResult.summary}\n🔥 Calories: ${lastAnalysisResult.totalCalories}`;
     if (navigator.share) {
       try {
-        await navigator.share({ title: 'Biometric Specimen Report', text: shareText, url: window.location.href });
+        await navigator.share({ title: 'Specimen Report', text: shareText, url: window.location.href });
         setShareStatus('shared');
         setTimeout(() => setShareStatus('idle'), 3000);
       } catch (err) { copyToClipboard(shareText); }
@@ -187,19 +180,14 @@ const Hero: React.FC = () => {
     } catch (err) { setShareStatus('error'); }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setStatus('processing');
-      const reader = new FileReader();
-      reader.onloadend = () => { 
-        setImage(reader.result as string);
-        setStatus('idle'); 
-        setProgress(0);
-      };
-      reader.readAsDataURL(file);
-    }
+  const personaConfigs: Record<BioPersona, { label: string, icon: React.ReactNode, slogan: string, color: string, border: string, accent: string }> = {
+    GENERAL: { label: isAr ? 'عام' : 'GENERAL', icon: <Utensils size={14} />, slogan: isAr ? 'يومي' : 'Daily', color: 'bg-[#C2A36B]', accent: 'text-[#C2A36B]', border: 'border-[#C2A36B]' },
+    PREGNANCY: { label: isAr ? 'حمل' : 'PREGNANCY', icon: <Baby size={14} />, slogan: isAr ? 'نمو' : 'Growth', color: 'bg-[#E5C1CD]', accent: 'text-[#E5C1CD]', border: 'border-[#E5C1CD]' },
+    DIABETIC: { label: isAr ? 'سكري' : 'DIABETIC', icon: <HeartPulse size={14} />, slogan: isAr ? 'توازن' : 'Sync', color: 'bg-[#64B5F6]', accent: 'text-[#64B5F6]', border: 'border-[#64B5F6]' },
+    ATHLETE: { label: isAr ? 'رياضي' : 'ATHLETE', icon: <Zap size={14} />, slogan: isAr ? 'أداء' : 'Power', color: 'bg-[#FF7043]', accent: 'text-[#FF7043]', border: 'border-[#FF7043]' }
   };
+
+  const activeConfig = personaConfigs[currentPersona];
 
   return (
     <section id={SectionId.PHASE_01_SCAN} className="relative h-screen bg-brand-dark flex items-center justify-center overflow-hidden pt-16 lg:pt-0">
@@ -337,11 +325,11 @@ const Hero: React.FC = () => {
                                 className="w-full py-5 bg-brand-primary text-brand-dark rounded-2xl text-[10px] font-black uppercase tracking-[0.4em] shadow-glow flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-70"
                               >
                                  {isConnectingKey ? <Loader2 size={16} className="animate-spin" /> : <Key size={16} />} 
-                                 {isAr ? 'تزويد بمفتاح خاص' : 'LINK PERSONAL KEY'}
+                                 {isAr ? 'ربط مفتاح شخصي' : 'LINK PERSONAL KEY'}
                               </button>
                             ) : null}
                             <button onClick={handleReset} className={`w-full py-5 bg-white/5 text-white rounded-2xl text-[9px] font-black uppercase tracking-[0.4em] border border-white/10 transition-all hover:bg-white/10`}>
-                               {isAr ? 'إعادة تشغيل النظام' : 'RESTART SYSTEM'}
+                               {isAr ? 'إعادة محاولة' : 'RESTART SYSTEM'}
                             </button>
                          </div>
                       </div>

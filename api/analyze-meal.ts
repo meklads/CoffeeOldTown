@@ -1,12 +1,11 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
-// إعدادات Vercel لرفع القيود عن الوظائف السحابية
 export const config = {
-  maxDuration: 60, // تمديد الوقت لـ 60 ثانية لتحليل الصور
+  maxDuration: 60,
   api: {
     bodyParser: {
-      sizeLimit: '10mb', // رفع حد حجم الصورة المرسلة
+      sizeLimit: '10mb',
     },
   },
 };
@@ -52,23 +51,24 @@ export default async function handler(req: any, res: any) {
 
   const { image, profile, lang } = req.body;
 
+  // فحص حاسم لوجود المفتاح في إعدادات فيرسال
   if (!process.env.API_KEY) {
-    return res.status(500).json({ error: 'SYSTEM_ERROR', details: 'API_KEY is not configured in Vercel Environment Variables.' });
+    return res.status(500).json({ 
+      error: 'API_KEY_MISSING', 
+      details: 'Critical: API_KEY is not set in Vercel Environment Variables. Please check your project settings.' 
+    });
   }
 
-  if (!image) {
-    return res.status(400).json({ error: 'NO_IMAGE', details: 'Please provide a valid image.' });
-  }
+  if (!image) return res.status(400).json({ error: 'NO_IMAGE', details: 'No image specimen received.' });
 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    // تنظيف بيانات الصورة
     const base64Data = image.includes(',') ? image.split(',')[1] : image;
     const persona = profile?.persona || 'GENERAL';
 
     const prompt = lang === 'ar' 
-      ? `حلل هذه الوجبة بدقة لمستخدم بروتوكول ${persona}. ركز على السعرات والماكروز. الرد JSON فقط.`
-      : `Analyze this meal for a ${persona} profile. Focus on precise calories and macros. Return JSON only.`;
+      ? `حلل هذه الوجبة بدقة لمستخدم بروتوكول ${persona}. ركز على السعرات والماكروز بدقة جراحية. الرد JSON فقط.`
+      : `Analyze this meal for a ${persona} profile. Focus on surgical calorie and macro precision. Return JSON only.`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview', 
@@ -85,21 +85,18 @@ export default async function handler(req: any, res: any) {
       }
     });
 
-    const resultText = response.text;
-    if (!resultText) throw new Error("EMPTY_AI_RESPONSE");
-    
-    return res.status(200).json(JSON.parse(resultText.trim()));
+    if (!response.text) throw new Error("EMPTY_AI_RESPONSE");
+    return res.status(200).json(JSON.parse(response.text.trim()));
   } catch (error: any) {
-    console.error("Vercel Function Error:", error);
+    console.error("Vercel Function Failure:", error);
     
-    // التحقق من أخطاء الحصة (Quota)
     const errMsg = (error.message || "").toLowerCase();
     const isQuota = error.status === 429 || errMsg.includes("quota") || errMsg.includes("limit");
 
     if (isQuota) {
       return res.status(429).json({ 
         error: 'QUOTA_EXCEEDED', 
-        details: 'The lab is currently at full capacity. Please try again in a few minutes or link your own key.' 
+        details: 'The lab reached its capacity. Use a personal API key or try in 60 seconds.' 
       });
     }
 
