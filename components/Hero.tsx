@@ -22,12 +22,37 @@ const Hero: React.FC = () => {
 
   const currentConf = personaConfigs[currentPersona];
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // وظيفة ضغط وتصغير الصورة قبل الإرسال لمنع تجمد Vercel
+  const resizeImage = (base64Str: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = base64Str;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 800;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > MAX_WIDTH) {
+          height *= MAX_WIDTH / width;
+          width = MAX_WIDTH;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.7)); // ضغط الجودة لـ 70%
+      };
+    });
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setImage(reader.result as string);
+      reader.onloadend = async () => {
+        const resized = await resizeImage(reader.result as string);
+        setImage(resized);
         setStatus('idle');
         setLastAnalysisResult(null);
       };
@@ -39,6 +64,7 @@ const Hero: React.FC = () => {
     if (!image || status === 'loading') return;
     setStatus('loading');
     try {
+      // إرسال الصورة المضغوطة لتسريع الاستجابة
       const result = await analyzeMealImage(image, { chronicDiseases: "none", dietProgram: "general", activityLevel: "moderate", persona: currentPersona }, language);
       if (result) {
         setLastAnalysisResult(result);
@@ -94,14 +120,14 @@ const Hero: React.FC = () => {
           </div>
 
           <div className="lg:col-span-7 flex flex-col items-center">
-             <div className={`relative w-full max-w-[500px] aspect-[4/5] bg-white dark:bg-zinc-900 rounded-[60px] border-2 transition-all duration-700 ${status === 'loading' ? 'border-brand-primary animate-pulse' : 'border-brand-primary/10'} shadow-4xl overflow-hidden`}>
+             <div className={`relative w-full max-w-[500px] aspect-[4/5] bg-white dark:bg-zinc-900 rounded-[60px] border-2 transition-all duration-700 ${status === 'loading' ? 'border-brand-primary' : 'border-brand-primary/10'} shadow-4xl overflow-hidden`}>
                 
                 {image ? (
                    <div className="relative h-full w-full">
                       <img src={image} className="w-full h-full object-cover" alt="Meal" />
                       
                       {status === 'loading' && (
-                        <div className="absolute inset-0 bg-brand-dark/60 backdrop-blur-sm flex flex-col items-center justify-center p-12 text-center text-white z-50">
+                        <div className="absolute inset-0 bg-brand-dark/70 backdrop-blur-md flex flex-col items-center justify-center p-12 text-center text-white z-50">
                            <div className="relative w-full h-full flex flex-col items-center justify-center">
                               <div className="absolute top-0 left-0 w-full h-1 bg-brand-primary shadow-glow animate-scan" />
                               <BrainCircuit size={80} className="text-brand-primary animate-pulse mb-6" />
@@ -129,13 +155,13 @@ const Hero: React.FC = () => {
                       )}
 
                       {status === 'error' && (
-                        <div className="absolute inset-0 bg-red-500/10 backdrop-blur-md flex flex-col items-center justify-center p-12 text-center z-50">
+                        <div className="absolute inset-0 bg-brand-dark/80 backdrop-blur-md flex flex-col items-center justify-center p-12 text-center text-white z-50">
                            <AlertCircle size={60} className="text-red-500 mb-4" />
-                           <h3 className="text-xl font-serif font-bold text-brand-dark dark:text-white mb-6">{isAr ? 'فشل التحليل' : 'Analysis Failed'}</h3>
-                           <button onClick={handleAnalyze} className="px-8 py-3 bg-brand-dark text-white rounded-xl text-xs font-black uppercase tracking-widest">
+                           <h3 className="text-xl font-serif font-bold mb-6">{isAr ? 'فشل التحليل' : 'Analysis Failed'}</h3>
+                           <button onClick={handleAnalyze} className="px-8 py-3 bg-brand-primary text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-glow">
                               {isAr ? 'إعادة المحاولة' : 'RETRY'}
                            </button>
-                           <button onClick={resetScanner} className="mt-4 text-brand-dark/40 dark:text-white/40 text-[10px] font-black uppercase tracking-widest underline">
+                           <button onClick={resetScanner} className="mt-4 text-white/40 text-[10px] font-black uppercase tracking-widest underline">
                               {isAr ? 'إلغاء' : 'CANCEL'}
                            </button>
                         </div>
@@ -146,7 +172,7 @@ const Hero: React.FC = () => {
                             <button onClick={handleAnalyze} className={`w-24 h-24 rounded-full flex items-center justify-center ${currentConf.color} text-white shadow-glow group-hover:scale-110 transition-transform duration-500`}>
                                <BrainCircuit size={40} className="group-hover:rotate-12 transition-transform" />
                             </button>
-                            <h4 className="text-xl font-serif font-bold text-white mt-6 italic tracking-widest">{isAr ? 'بدء التخليق' : 'Initialize Analysis'}</h4>
+                            <h4 className="text-xl font-serif font-bold text-white mt-6 italic tracking-widest">{isAr ? 'بدء التحليل' : 'Initialize Analysis'}</h4>
                          </div>
                       )}
                    </div>
@@ -156,7 +182,7 @@ const Hero: React.FC = () => {
                          <UploadCloud size={48} className="group-hover:-translate-y-2 transition-transform" />
                       </div>
                       <h4 className="text-2xl font-serif font-bold text-brand-dark/30 dark:text-white/30 group-hover:text-brand-primary transition-colors">{isAr ? 'ارفع صورة الوجبة' : 'Upload Meal Image'}</h4>
-                      <p className="mt-4 text-[9px] font-black uppercase tracking-[0.4em] text-brand-dark/20 dark:text-white/10">{isAr ? 'جيمناي 3 فلاش نشط' : 'GEMINI 3 FLASH ACTIVE'}</p>
+                      <p className="mt-4 text-[9px] font-black uppercase tracking-[0.4em] text-brand-dark/20 dark:text-white/10">{isAr ? 'المسح الضوئي فائق السرعة' : 'ULTRA-FAST SCAN ACTIVE'}</p>
                    </div>
                 )}
              </div>

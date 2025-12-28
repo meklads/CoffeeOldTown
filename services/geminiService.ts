@@ -19,7 +19,7 @@ export const analyzeMealImage = async (base64Image: string, profile: UserHealthP
       contents: {
         parts: [
           { inlineData: { data: base64Data, mimeType: 'image/jpeg' } },
-          { text: `Quick analysis for ${persona} protocol. Lang: ${lang}. Return JSON.` }
+          { text: `Analyze for ${persona}. Return JSON only. Lang: ${lang}.` }
         ]
       },
       config: {
@@ -36,8 +36,8 @@ export const analyzeMealImage = async (base64Image: string, profile: UserHealthP
           },
           required: ["ingredients", "totalCalories", "healthScore", "macros", "summary", "personalizedAdvice"]
         },
-        temperature: 0.2, // سرعة أكبر
-        thinkingConfig: { thinkingBudget: 0 } // تعطيل التفكير للسرعة القصوى
+        temperature: 0.1, // أقصى سرعة
+        thinkingConfig: { thinkingBudget: 0 } // لا تفكير، رد فوري
       }
     });
 
@@ -71,7 +71,7 @@ export const generateMealPlan = async (request: MealPlanRequest, lang: string, f
           },
           required: ["breakfast", "lunch", "dinner", "snack", "totalCalories", "advice"]
         },
-        temperature: 0.2,
+        temperature: 0.1,
         thinkingConfig: { thinkingBudget: 0 }
       }
     });
