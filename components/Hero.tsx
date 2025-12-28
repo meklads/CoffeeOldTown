@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { RotateCcw, Baby, HeartPulse, Zap, Camera, Utensils, Share2, Activity, AlertCircle, UploadCloud, Check, Copy, Key, Loader2, ShieldAlert, Terminal, Settings, ArrowRight, RefreshCw, Layers } from 'lucide-react';
+import { RotateCcw, Baby, HeartPulse, Zap, Camera, Utensils, ShieldAlert, Terminal, Settings, ArrowRight, RefreshCw, Layers, UploadCloud, Check, AlertCircle } from 'lucide-react';
 import { SectionId, BioPersona } from '../types.ts';
 import { useApp } from '../context/AppContext.tsx';
 import { analyzeMealImage } from '../services/geminiService.ts';
@@ -16,7 +16,6 @@ const Hero: React.FC = () => {
   const [progress, setProgress] = useState(0);
   const [loadingStep, setLoadingStep] = useState('');
   const [errorMsg, setErrorMsg] = useState<{title: string, detail: string, type: 'quota' | 'config' | 'general'} | null>(null);
-  const [retryAttempt, setRetryAttempt] = useState(0);
   
   const isAr = language === 'ar';
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -31,37 +30,13 @@ const Hero: React.FC = () => {
 
   const currentConf = personaConfigs[currentPersona];
 
-  const compressImage = (base64: string): Promise<string> => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.src = base64;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX_SIZE = 500; // تصغير أكثر لضمان السرعة
-        let width = img.width;
-        let height = img.height;
-        if (width > height) {
-          if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; }
-        } else {
-          if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; }
-        }
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.4)); 
-      };
-    });
-  };
-
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setStatus('processing');
       const reader = new FileReader();
-      reader.onloadend = async () => {
-        const compressed = await compressImage(reader.result as string);
-        setImage(compressed);
+      reader.onloadend = () => {
+        setImage(reader.result as string);
         setStatus('idle');
       };
       reader.readAsDataURL(file);
@@ -72,36 +47,38 @@ const Hero: React.FC = () => {
     setImage(null);
     setStatus('idle');
     setProgress(0);
-    setRetryAttempt(0);
     setLastAnalysisResult(null);
     setErrorMsg(null);
     if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleAnalyze = async (attempt = 0) => {
-    if (!image || status === 'loading' && attempt === 0) return;
+  const handleAnalyze = async () => {
+    if (!image || status === 'loading') return;
     
     setStatus('loading');
-    setRetryAttempt(attempt);
-    if (attempt === 0) setProgress(0);
+    setProgress(0);
     setErrorMsg(null);
     
     const steps = isAr 
-      ? ['تحميل البروتوكول...', 'مزامنة العصبية...', 'تحليل المكونات...', 'توليد التقرير...'] 
-      : ['Loading Protocol...', 'Syncing Neural...', 'Analyzing Specs...', 'Generating Lab Report...'];
+      ? ['مزامنة مع جوجل...', 'استخلاص البيانات العصبية...', 'تحليل البصمة الأيضية...', 'توليد التقرير السريري...'] 
+      : ['Syncing Google AI...', 'Neural Extraction...', 'Metabolic Analysis...', 'Generating Report...'];
     
-    setLoadingStep(steps[Math.min(attempt, steps.length - 1)]);
+    let currentStepIdx = 0;
+    setLoadingStep(steps[0]);
 
-    if (!progressIntervalRef.current || attempt === 0) {
-      progressIntervalRef.current = window.setInterval(() => {
-        setProgress(prev => {
-          const next = prev + 1;
-          if (next >= 98) return 98;
-          return next;
-        });
-      }, 60);
-    }
+    progressIntervalRef.current = window.setInterval(() => {
+      setProgress(prev => {
+        const next = prev + 1;
+        if (next >= 98) return 98;
+        const stepIdx = Math.floor((next / 100) * steps.length);
+        if (stepIdx !== currentStepIdx && stepIdx < steps.length) {
+          currentStepIdx = stepIdx;
+          setLoadingStep(steps[stepIdx]);
+        }
+        return next;
+      });
+    }, 40);
 
     try {
       const result = await analyzeMealImage(image, {
@@ -115,38 +92,29 @@ const Hero: React.FC = () => {
       setProgress(100);
       
       if (result) {
-        setLastAnalysisResult({ ...result, imageUrl: image });
+        setLastAnalysisResult(result);
         incrementScans(result);
         setStatus('success');
       }
     } catch (err: any) {
-      // نظام إعادة المحاولة الذكي عند وجود خطأ 429 أو خطأ معالجة
-      if (attempt < 2 && (err.message === "QUOTA_EXCEEDED" || err.message.includes("SERVER_ERROR") || err.message.includes("fetch"))) {
-        console.warn(`Attempt ${attempt + 1} failed, retrying in 2s...`);
-        setLoadingStep(isAr ? 'إعادة محاولة الاتصال...' : 'Re-establishing Link...');
-        setTimeout(() => handleAnalyze(attempt + 1), 2000);
-        return;
-      }
-
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       setStatus('error');
+      
       const isQuota = err.message === "QUOTA_EXCEEDED";
-      const isConfig = err.message.includes("CONFIG_ERROR");
-
       setErrorMsg({
-        title: isConfig ? (isAr ? "نظام غير مهيأ" : "System Offline") : isQuota ? (isAr ? "ضغط على الشبكة" : "Network Load") : (isAr ? "فشل الاتصال" : "Link Failure"),
-        detail: isConfig 
-          ? (isAr ? "مفتاح API مفقود. يرجى مراجعة الإعدادات." : "API Key missing in environment.")
-          : isQuota 
-            ? (isAr ? "وصلت للحد المجاني. انتظر دقيقة أو استخدم مفتاحاً مدفوعاً." : "Google API limit reached. Try again in 60s.")
-            : (isAr ? "الخادم استغرق وقتاً طويلاً. جرب صورة أصغر أو بروتوكولاً عاماً." : "Vercel timeout. Try a smaller image or General mode."),
-        type: isConfig ? 'config' : isQuota ? 'quota' : 'general'
+        title: isQuota ? (isAr ? "حدود جوجل المجانية" : "Google Quota Reached") : (isAr ? "خطأ في الاتصال" : "Neural Link Failure"),
+        detail: isQuota 
+          ? (isAr ? "يرجى الانتظار دقيقة واحدة فقط ثم المحاولة مرة أخرى." : "Please wait 60 seconds before scanning again.")
+          : (isAr ? "تأكد من اتصالك بالإنترنت وحاول مرة أخرى." : "Check your connection and retry the analysis."),
+        type: isQuota ? 'quota' : 'general'
       });
     }
   };
 
   return (
     <section id={SectionId.PHASE_01_SCAN} className="relative min-h-screen pt-32 pb-20 overflow-hidden bg-brand-light dark:bg-brand-dark transition-colors duration-1000">
+      <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-brand-primary/5 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/2" />
+      
       <div className="max-w-7xl mx-auto px-6 relative z-10 h-full">
         <div className="grid lg:grid-cols-12 gap-12 lg:gap-20 items-center">
           
@@ -154,14 +122,14 @@ const Hero: React.FC = () => {
             <div className="space-y-6">
               <div className="inline-flex items-center gap-3 px-4 py-2 bg-brand-dark dark:bg-white/5 text-brand-primary rounded-full shadow-lg border border-white/5">
                 <ShieldAlert size={14} />
-                <span className="text-[9px] font-black uppercase tracking-[0.4em]">{isAr ? 'نظام النخبة لتحليل الأيض' : 'ELITE METABOLIC ANALYZER'}</span>
+                <span className="text-[9px] font-black uppercase tracking-[0.4em]">{isAr ? 'نظام تحليل جزيئي مخصص' : 'CUSTOM MOLECULAR ANALYSIS'}</span>
               </div>
               <h1 className="text-5xl md:text-7xl font-serif font-bold text-brand-dark dark:text-white tracking-tighter leading-[0.9]">
                 Metabolic <br /> 
                 <span className={`${currentConf.accent} italic font-normal transition-colors duration-700`}>{isAr ? 'التشخيص الذكي.' : 'Diagnostics.'}</span>
               </h1>
               <p className="text-brand-dark/50 dark:text-white/40 text-lg font-medium italic leading-relaxed max-w-sm">
-                {isAr ? 'اختر البروتوكول لتوجيه الذكاء الاصطناعي نحو احتياجاتك الحيوية.' : 'Select a protocol to calibrate AI towards your specific bio-needs.'}
+                {isAr ? 'الآن الماسح الضوئي يعمل مباشرة مع ذكاء جوجل لتخطي أي قيود فنية.' : 'Direct Google AI integration enabled. Bypassing all technical limitations.'}
               </p>
             </div>
 
@@ -173,8 +141,8 @@ const Hero: React.FC = () => {
                   <button
                     key={key}
                     onClick={() => {
-                      setCurrentPersona(key);
-                      if (status === 'error') setStatus('idle');
+                        setCurrentPersona(key);
+                        if (status === 'error') setStatus('idle');
                     }}
                     className={`group relative p-6 rounded-[35px] border transition-all duration-500 text-left overflow-hidden h-[120px] flex flex-col justify-between
                       ${isActive ? `${conf.color} ${conf.border} text-white shadow-xl scale-[1.02]` : 'bg-white dark:bg-white/5 border-brand-dark/5 dark:border-white/5 text-brand-dark dark:text-white/40 hover:bg-brand-primary/5 hover:border-brand-primary/20'}`}
@@ -196,8 +164,8 @@ const Hero: React.FC = () => {
             
             <div className="pt-6 hidden lg:block">
                <div className="flex items-center gap-4 text-brand-dark/20 dark:text-white/10 uppercase font-black text-[9px] tracking-[0.4em]">
-                  <Layers size={14} className="animate-pulse" />
-                  <span>{isAr ? 'الذكاء الاصطناعي مهيأ للتحليل التخصصي' : 'AI OPTIMIZED FOR SPECIALIZED ANALYSIS'}</span>
+                  <Settings size={14} className="animate-spin-slow" />
+                  <span>{isAr ? 'التحليل يتم الآن عبر المتصفح لضمان الاستمرارية' : 'ANALYSIS EXECUTED LOCALLY FOR PERSISTENCE'}</span>
                </div>
             </div>
           </div>
@@ -219,7 +187,6 @@ const Hero: React.FC = () => {
                            </div>
                            <div className="space-y-4">
                               <h3 className="text-2xl font-serif font-bold text-white tracking-tight">{loadingStep}</h3>
-                              {retryAttempt > 0 && <span className="text-brand-primary text-[10px] font-black uppercase animate-pulse">{isAr ? `المحاولة ${retryAttempt + 1}` : `RETRY ATTEMPT ${retryAttempt + 1}`}</span>}
                               <div className="w-64 h-1.5 bg-white/10 rounded-full overflow-hidden">
                                  <div className={`h-full transition-all duration-300 ${currentConf.color}`} style={{ width: `${progress}%` }} />
                               </div>
@@ -269,7 +236,7 @@ const Hero: React.FC = () => {
                            <h3 className="text-2xl font-serif font-bold mb-4">{errorMsg.title}</h3>
                            <p className="text-base font-medium italic opacity-80 mb-8 max-w-xs">{errorMsg.detail}</p>
                            <div className="flex flex-col gap-3 w-full max-w-[240px]">
-                              <button onClick={() => handleAnalyze(0)} className="bg-white text-red-600 px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-brand-dark hover:text-white transition-all shadow-2xl flex items-center justify-center gap-2">
+                              <button onClick={handleAnalyze} className="bg-white text-red-600 px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-brand-dark hover:text-white transition-all shadow-2xl flex items-center justify-center gap-2">
                                  <RefreshCw size={14} /> {isAr ? 'إعادة المحاولة' : 'RETRY LINK'}
                               </button>
                               <button onClick={handleReset} className="bg-transparent text-white/60 border border-white/20 px-8 py-3 rounded-2xl font-black text-[9px] uppercase tracking-widest hover:text-white transition-all">
@@ -282,7 +249,7 @@ const Hero: React.FC = () => {
                       {status === 'idle' && (
                          <div className="absolute inset-0 flex items-center justify-center bg-brand-dark/40 group-hover:bg-brand-dark/20 transition-all z-40">
                             <button 
-                              onClick={() => handleAnalyze(0)}
+                              onClick={handleAnalyze}
                               className={`w-28 h-28 rounded-full flex items-center justify-center shadow-glow animate-pulse hover:scale-110 transition-transform ${currentConf.color} text-white`}
                             >
                                <Zap size={44} fill="currentColor" />
@@ -302,7 +269,7 @@ const Hero: React.FC = () => {
                       </div>
                       <div className="space-y-4">
                          <h4 className="text-3xl font-serif font-bold text-brand-dark/60 dark:text-white/40 italic">{isAr ? 'المختبر جاهز للمسح' : 'Biometric Lab Ready.'}</h4>
-                         <p className="text-[10px] font-black text-brand-dark/20 dark:text-white/10 uppercase tracking-[0.5em]">{isAr ? 'ارفع صورة الوجبة لبدء التشخيص' : 'UPLOAD SPECIMEN TO ANALYZE'}</p>
+                         <p className="text-[10px] font-black text-brand-dark/20 dark:text-white/10 uppercase tracking-[0.5em]">{isAr ? 'ارفع صورة الوجبة لبدء التشخيص المباشر' : 'UPLOAD SPECIMEN TO ANALYZE'}</p>
                       </div>
                       <div className="flex flex-col items-center gap-2">
                         <span className={`text-[8px] font-black uppercase tracking-widest ${currentConf.accent}`}>{isAr ? 'البروتوكول الفعال:' : 'ACTIVE_PROTOCOL:'} {currentConf.label}</span>
