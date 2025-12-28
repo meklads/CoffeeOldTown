@@ -5,6 +5,17 @@ import { SectionId, BioPersona } from '../types.ts';
 import { useApp } from '../context/AppContext.tsx';
 import { analyzeMealImage } from '../services/geminiService.ts';
 
+// Fixed: Removed local AIStudio interface and updated global Window declaration 
+// to avoid modifier mismatch and type collisions with potentially existing definitions.
+declare global {
+  interface Window {
+    aistudio: {
+      hasSelectedApiKey: () => Promise<boolean>;
+      openSelectKey: () => Promise<void>;
+    };
+  }
+}
+
 const Hero: React.FC = () => {
   const { incrementScans, setLastAnalysisResult, lastAnalysisResult, currentPersona, setCurrentPersona, language, setView } = useApp();
   
@@ -30,7 +41,6 @@ const Hero: React.FC = () => {
 
   const currentConf = personaConfigs[currentPersona];
 
-  // وظيفة لفتح حوار المفتاح مع حماية ضد البيئات الخارجية
   const handleKeySetup = async () => {
     if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
       try {
@@ -40,7 +50,6 @@ const Hero: React.FC = () => {
         console.error("Key selection failed");
       }
     } else {
-      // إذا كنا على فيرسال، المفتاح موجود في env بالفعل
       if (image) handleAnalyze();
     }
   };
@@ -51,13 +60,13 @@ const Hero: React.FC = () => {
       img.src = base64;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 500; 
+        const MAX_WIDTH = 600; 
         const scaleSize = MAX_WIDTH / img.width;
         canvas.width = MAX_WIDTH;
         canvas.height = img.height * scaleSize;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL('image/jpeg', 0.6));
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
       };
     });
   };
@@ -95,37 +104,20 @@ const Hero: React.FC = () => {
     
     if (!image || status === 'loading') return;
     
-    // التحقق من البيئة والمفتاح
-    let hasKey = !!process.env.API_KEY;
-    if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
-      const selectedInStudio = await window.aistudio.hasSelectedApiKey();
-      hasKey = hasKey || selectedInStudio;
-    }
-
-    if (!hasKey) {
-      setStatus('error');
-      setErrorMsg({
-        title: isAr ? "ربط المفتاح مطلوب" : "AI Key Required",
-        detail: isAr ? "يرجى ربط مفتاح Gemini الخاص بك لتفعيل القدرات التحليلية." : "Please link your Gemini API key to activate diagnostic capabilities.",
-        type: 'key'
-      });
-      return;
-    }
-
     setStatus('loading');
     setProgress(0);
     setErrorMsg(null);
     
     const steps = isAr 
-      ? ['ضبط المستشعرات...', 'تشفير البروتوكول...', 'تحليل الجزيئات...', 'إتمام التقرير...'] 
-      : ['Adjusting Sensors...', 'Encoding Protocol...', 'Molecular Analysis...', 'Finalizing Report...'];
+      ? ['بدء الاتصال العصبي...', 'تحميل البروتوكول...', 'تحليل الجزيئات...', 'توليد التقرير...'] 
+      : ['Initializing Link...', 'Loading Protocol...', 'Molecular Analysis...', 'Generating Report...'];
     
     let currentStepIdx = 0;
     setLoadingStep(steps[0]);
 
     progressIntervalRef.current = window.setInterval(() => {
       setProgress(prev => {
-        const next = prev + 1.5;
+        const next = prev + 1.2;
         if (next >= 98) return 98;
         const stepIdx = Math.floor((next / 100) * steps.length);
         if (stepIdx !== currentStepIdx && stepIdx < steps.length) {
@@ -134,7 +126,7 @@ const Hero: React.FC = () => {
         }
         return next;
       });
-    }, 40);
+    }, 50);
 
     try {
       const result = await analyzeMealImage(image, {
@@ -157,16 +149,16 @@ const Hero: React.FC = () => {
       setStatus('error');
       
       const isQuota = err.message === "QUOTA_EXCEEDED";
-      const isKeyInvalid = err.message === "KEY_INVALID" || err.message === "API_KEY_MISSING";
+      const isKeyError = err.message === "CONFIG_ERROR" || err.message === "KEY_INVALID";
 
       setErrorMsg({
-        title: isKeyInvalid ? (isAr ? "خطأ في المفتاح" : "Key Error") : isQuota ? (isAr ? "ضغط على الشبكة" : "Network Load") : (isAr ? "فشل الارتباط" : "Neural Link Failure"),
-        detail: isKeyInvalid 
-          ? (isAr ? "مفتاح API غير صالح أو لم يتم العثور عليه. يرجى إعادة الربط." : "Invalid API Key or missing configuration.")
+        title: isKeyError ? (isAr ? "تحذير المفتاح" : "Key Warning") : isQuota ? (isAr ? "ضغط على الشبكة" : "Network Load") : (isAr ? "فشل الارتباط" : "Neural Link Failure"),
+        detail: isKeyError 
+          ? (isAr ? "يجب ضبط مفتاح API في إعدادات فيرسال أو ربطه يدوياً." : "API Key is missing in Vercel. Please link manually.")
           : isQuota 
-            ? (isAr ? "لقد وصلت لحدود جوجل المجانية. انتظر دقيقة واحدة." : "Google Quota reached. Please wait 60s.")
-            : (isAr ? "حدث خطأ غير متوقع أثناء معالجة البيانات." : "An unexpected error occurred during data processing."),
-        type: isKeyInvalid ? 'key' : isQuota ? 'quota' : 'general'
+            ? (isAr ? "وصلت للحد الأقصى المجاني من جوجل. انتظر دقيقة." : "Google API limit reached. Try in 60s.")
+            : (isAr ? "لم نتمكن من إتمام التحليل، يرجى المحاولة لاحقاً." : "Unexpected error during cloud analysis."),
+        type: isKeyError ? 'key' : isQuota ? 'quota' : 'general'
       });
     }
   };
@@ -286,7 +278,7 @@ const Hero: React.FC = () => {
                            <div className="flex flex-col gap-3 w-full max-w-[240px]">
                               {errorMsg.type === 'key' ? (
                                 <button onClick={handleKeySetup} className="bg-white text-brand-dark px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-brand-primary hover:text-white transition-all shadow-2xl flex items-center justify-center gap-2">
-                                  <Key size={14} /> {isAr ? 'ضبط المفتاح العصبي' : 'CONNECT NEURAL KEY'}
+                                  <Key size={14} /> {isAr ? 'ربط المفتاح يدوياً' : 'CONNECT MANUALLY'}
                                 </button>
                               ) : (
                                 <button onClick={(e) => handleAnalyze(e)} className="bg-white text-red-600 px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-brand-dark hover:text-white transition-all shadow-2xl flex items-center justify-center gap-2">

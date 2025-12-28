@@ -2,68 +2,22 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { UserHealthProfile, MealAnalysisResult, MealPlanRequest, DayPlan, FeedbackEntry } from '../types.ts';
 
-const mealAnalysisSchema = {
-  type: Type.OBJECT,
-  properties: {
-    ingredients: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          name: { type: Type.STRING },
-          calories: { type: Type.NUMBER }
-        },
-        required: ["name", "calories"]
-      }
-    },
-    totalCalories: { type: Type.NUMBER },
-    healthScore: { type: Type.NUMBER },
-    macros: {
-      type: Type.OBJECT,
-      properties: {
-        protein: { type: Type.NUMBER },
-        carbs: { type: Type.NUMBER },
-        fat: { type: Type.NUMBER }
-      },
-      required: ["protein", "carbs", "fat"]
-    },
-    summary: { type: Type.STRING },
-    personalizedAdvice: { type: Type.STRING }
-  },
-  required: ["ingredients", "totalCalories", "healthScore", "macros", "summary", "personalizedAdvice"]
-};
-
+// هذه الوظيفة الآن تستخدم الـ API Route الخاص بنا لتجنب مشاكل المفاتيح في المتصفح
 export const analyzeMealImage = async (base64Image: string, profile: UserHealthProfile, lang: string = 'en'): Promise<MealAnalysisResult | null> => {
-  // استخدام المفتاح من البيئة مباشرة
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) throw new Error("API_KEY_MISSING");
-
   try {
-    // إنشاء مثيل جديد دائماً لضمان استخدام أحدث مفتاح
-    const ai = new GoogleGenAI({ apiKey });
-    const base64Data = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
-    const persona = profile?.persona || 'GENERAL';
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview', 
-      contents: {
-        parts: [
-          { inlineData: { data: base64Data, mimeType: 'image/jpeg' } },
-          { text: `DIAGNOSTIC MISSION: Analyze this meal as a metabolic expert. 
-            Protocol: ${persona}. 
-            Language: ${lang === 'ar' ? 'Arabic' : 'English'}. 
-            Return strictly JSON.` }
-        ]
-      },
-      config: { 
-        responseMimeType: "application/json", 
-        responseSchema: mealAnalysisSchema,
-        temperature: 0.1,
-        thinkingConfig: { thinkingBudget: 0 }
-      }
+    const response = await fetch('/api/analyze-meal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: base64Image, profile, lang })
     });
 
-    const result = JSON.parse(response.text.trim());
+    if (!response.ok) {
+      const errorData = await response.json();
+      if (response.status === 429) throw new Error("QUOTA_EXCEEDED");
+      throw new Error(errorData.error || "ANALYSIS_FAILED");
+    }
+
+    const result = await response.json();
     return {
        ...result,
        imageUrl: base64Image,
@@ -71,16 +25,12 @@ export const analyzeMealImage = async (base64Image: string, profile: UserHealthP
     };
   } catch (error: any) {
     console.error("Neural Analysis Failure:", error.message);
-    if (error.message?.includes("429")) throw new Error("QUOTA_EXCEEDED");
-    if (error.message?.includes("not found")) throw new Error("KEY_INVALID");
-    throw new Error("NEURAL_LINK_FAILURE");
+    throw error;
   }
 };
 
 export const generateMealPlan = async (request: MealPlanRequest, lang: string, feedback: FeedbackEntry[] = []): Promise<DayPlan | null> => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-    // استخدام التحويل للسيرفر للخطة لأنها معقدة وتتطلب وقت أطول (Thinking)
     const response = await fetch('/api/generate-plan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -93,7 +43,7 @@ export const generateMealPlan = async (request: MealPlanRequest, lang: string, f
   }
 };
 
-// Fix: Implement generateMascot by calling the dedicated backend API endpoint
+// إضافة الوظيفة المفقودة لإصلاح خطأ MascotIcon
 export const generateMascot = async (prompt: string): Promise<string | null> => {
   try {
     const response = await fetch('/api/generate-mascot', {
