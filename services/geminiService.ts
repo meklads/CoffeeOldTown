@@ -26,22 +26,9 @@ const mealAnalysisSchema = {
   required: ["ingredients", "totalCalories", "healthScore", "macros", "summary", "personalizedAdvice"]
 };
 
-const mealPlanSchema = {
-  type: Type.OBJECT,
-  properties: {
-    breakfast: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, calories: { type: Type.STRING } }, required: ["name", "calories"] },
-    lunch: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, calories: { type: Type.STRING } }, required: ["name", "calories"] },
-    dinner: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, calories: { type: Type.STRING } }, required: ["name", "calories"] },
-    snack: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, calories: { type: Type.STRING } }, required: ["name", "calories"] },
-    totalCalories: { type: Type.STRING },
-    advice: { type: Type.STRING }
-  },
-  required: ["breakfast", "lunch", "dinner", "snack", "totalCalories", "advice"]
-};
-
 /**
- * Analyzes meal image using client-side Gemini 3 model.
- * Creates a fresh GoogleGenAI instance on every call.
+ * Analyzes meal image using Gemini 3 Flash. 
+ * Creates a new instance per call to ensure latest API key usage.
  */
 export const analyzeMealImage = async (base64Image: string, profile: UserHealthProfile, lang: string = 'en'): Promise<MealAnalysisResult | null> => {
   const apiKey = process.env.API_KEY;
@@ -56,11 +43,9 @@ export const analyzeMealImage = async (base64Image: string, profile: UserHealthP
       contents: {
         parts: [
           { inlineData: { data: base64Data, mimeType: 'image/jpeg' } },
-          { text: `Systematic Bio-Scan Protocol. 
-          User Bio-Profile: ${profile?.persona || 'General'}.
-          Analyze: Ingredients, Caloric density, Health viability.
-          Output Format: JSON.
-          Language: ${lang === 'ar' ? 'Arabic' : 'English'}.` }
+          { text: `Analyze this meal specimen for a ${profile?.persona || 'General'} bio-profile. 
+          Provide exact nutritional breakdown, health score, and metabolic advice.
+          Output strictly in JSON. Language: ${lang === 'ar' ? 'Arabic' : 'English'}.` }
         ]
       },
       config: {
@@ -75,7 +60,19 @@ export const analyzeMealImage = async (base64Image: string, profile: UserHealthP
     const data = JSON.parse(response.text.trim());
     return { ...data, imageUrl: base64Image, timestamp: new Date().toLocaleString() };
   } catch (e: any) {
-    console.error("Analysis Failed:", e);
+    console.error("SDK Analysis Error:", e);
+    // If client-side fails, attempt to fallback to serverless function for security/cors
+    try {
+      const serverResponse = await fetch('/api/analyze-meal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64Image, profile, lang })
+      });
+      if (serverResponse.ok) return await serverResponse.json();
+    } catch (innerE) {
+      console.error("Serverless Fallback Error:", innerE);
+    }
+    
     if (e.message?.includes("entity was not found") || e.message?.includes("API key")) {
       throw new Error("KEY_REBIND_REQUIRED");
     }
@@ -83,28 +80,22 @@ export const analyzeMealImage = async (base64Image: string, profile: UserHealthP
   }
 };
 
-/**
- * Generates meal plans using Gemini 3 model.
- * Creates a fresh GoogleGenAI instance on every call.
- */
 export const generateMealPlan = async (request: MealPlanRequest, lang: string, feedback: FeedbackEntry[] = []): Promise<DayPlan | null> => {
   const apiKey = process.env.API_KEY;
-  if (!apiKey) throw new Error("API_KEY_MISSING");
+  if (!apiKey) return null;
 
   try {
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Synthesize metabolic meal plan. Goal: ${request.goal}. Persona: ${request.persona}. Lang: ${lang === 'ar' ? 'Arabic' : 'English'}. User Feedback Loop: ${JSON.stringify(feedback.slice(-3))}.`,
+      contents: `Synthesize a precision meal plan for ${request.goal}. Persona: ${request.persona}. Lang: ${lang === 'ar' ? 'Arabic' : 'English'}.`,
       config: {
         responseMimeType: "application/json",
-        responseSchema: mealPlanSchema,
         temperature: 0.2
       }
     });
     return JSON.parse(response.text || '{}');
   } catch (e) {
-    console.error("Planning Failed:", e);
     return null;
   }
 };
@@ -116,7 +107,7 @@ export const generateMascot = async (prompt: string): Promise<string | null> => 
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
-      contents: { parts: [{ text: `Clinical minimalist brand icon: ${prompt}. Pure white background, high-end laboratory aesthetics.` }] },
+      contents: { parts: [{ text: `Clinical minimalist brand icon: ${prompt}. White background.` }] },
       config: { imageConfig: { aspectRatio: "1:1" } }
     });
     const parts = response.candidates?.[0]?.content?.parts;
