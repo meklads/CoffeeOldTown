@@ -2,7 +2,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { UserHealthProfile, MealAnalysisResult, MealPlanRequest, DayPlan, FeedbackEntry } from '../types.ts';
 
-// إنشاء نسخة الـ AI باستخدام المفتاح الموجود في البيئة فقط
 const getAI = () => {
   const apiKey = process.env.API_KEY;
   if (!apiKey) throw new Error("API_KEY_NOT_CONFIGURED");
@@ -20,7 +19,7 @@ export const analyzeMealImage = async (base64Image: string, profile: UserHealthP
       contents: {
         parts: [
           { inlineData: { data: base64Data, mimeType: 'image/jpeg' } },
-          { text: `Analyze meal for ${persona} protocol. Language: ${lang}. Provide accurate JSON.` }
+          { text: `Quick analysis for ${persona} protocol. Lang: ${lang}. Return JSON.` }
         ]
       },
       config: {
@@ -36,7 +35,9 @@ export const analyzeMealImage = async (base64Image: string, profile: UserHealthP
             personalizedAdvice: { type: Type.STRING }
           },
           required: ["ingredients", "totalCalories", "healthScore", "macros", "summary", "personalizedAdvice"]
-        }
+        },
+        temperature: 0.2, // سرعة أكبر
+        thinkingConfig: { thinkingBudget: 0 } // تعطيل التفكير للسرعة القصوى
       }
     });
 
@@ -54,8 +55,8 @@ export const generateMealPlan = async (request: MealPlanRequest, lang: string, f
     const language = lang === 'ar' ? 'Arabic' : 'English';
     
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview', // تغيير إلى Flash لضمان السرعة والمجانية
-      contents: `Generate 1-day ${persona} meal plan for ${request.goal} in ${language}. JSON format only.`,
+      model: 'gemini-3-flash-preview', 
+      contents: `Quick 1-day ${persona} meal plan for ${request.goal} in ${language}. Concise JSON.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -69,13 +70,15 @@ export const generateMealPlan = async (request: MealPlanRequest, lang: string, f
             advice: { type: Type.STRING }
           },
           required: ["breakfast", "lunch", "dinner", "snack", "totalCalories", "advice"]
-        }
+        },
+        temperature: 0.2,
+        thinkingConfig: { thinkingBudget: 0 }
       }
     });
 
     return JSON.parse(response.text.trim());
   } catch (error: any) {
-    console.error("Synthesis failed:", error);
+    console.error("Plan synthesis failed:", error);
     throw error;
   }
 };

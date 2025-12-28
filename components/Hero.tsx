@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { Utensils, Zap, HeartPulse, Baby, ShieldAlert, Check, BrainCircuit, Scan, RefreshCcw, UploadCloud } from 'lucide-react';
+import { Utensils, Zap, HeartPulse, Baby, ShieldAlert, Check, BrainCircuit, Scan, RefreshCcw, UploadCloud, AlertCircle } from 'lucide-react';
 import { SectionId, BioPersona } from '../types.ts';
 import { useApp } from '../context/AppContext.tsx';
 import { analyzeMealImage } from '../services/geminiService.ts';
@@ -29,6 +29,7 @@ const Hero: React.FC = () => {
       reader.onloadend = () => {
         setImage(reader.result as string);
         setStatus('idle');
+        setLastAnalysisResult(null);
       };
       reader.readAsDataURL(file);
     }
@@ -43,8 +44,11 @@ const Hero: React.FC = () => {
         setLastAnalysisResult(result);
         incrementScans(result);
         setStatus('success');
+      } else {
+        setStatus('error');
       }
     } catch (err) {
+      console.error("Analysis Error:", err);
       setStatus('error');
     }
   };
@@ -79,7 +83,7 @@ const Hero: React.FC = () => {
                 return (
                   <button key={key} onClick={() => { setCurrentPersona(key); setStatus('idle'); }}
                     className={`p-6 rounded-[35px] border transition-all h-[110px] flex flex-col justify-between text-left
-                      ${isActive ? `${conf.color} text-white shadow-xl` : 'bg-white dark:bg-white/5 border-brand-dark/5 dark:border-white/5 text-brand-dark dark:text-white/40'}`}
+                      ${isActive ? `${conf.color} text-white shadow-xl` : 'bg-white dark:bg-white/5 border-brand-dark/5 dark:border-white/5 text-brand-dark dark:text-white/40 hover:border-brand-primary/30'}`}
                   >
                     <div className="flex justify-between">{conf.icon} {isActive && <Check size={14} />}</div>
                     <span className="text-sm font-serif font-bold">{conf.label}</span>
@@ -90,16 +94,19 @@ const Hero: React.FC = () => {
           </div>
 
           <div className="lg:col-span-7 flex flex-col items-center">
-             <div className={`relative w-full max-w-[500px] aspect-[4/5] bg-white dark:bg-zinc-900 rounded-[60px] border-2 transition-all duration-700 border-brand-primary/20 shadow-4xl overflow-hidden`}>
+             <div className={`relative w-full max-w-[500px] aspect-[4/5] bg-white dark:bg-zinc-900 rounded-[60px] border-2 transition-all duration-700 ${status === 'loading' ? 'border-brand-primary animate-pulse' : 'border-brand-primary/10'} shadow-4xl overflow-hidden`}>
                 
                 {image ? (
                    <div className="relative h-full w-full">
                       <img src={image} className="w-full h-full object-cover" alt="Meal" />
                       
                       {status === 'loading' && (
-                        <div className="absolute inset-0 bg-brand-dark/80 backdrop-blur-md flex flex-col items-center justify-center p-12 text-center text-white z-50">
-                           <Scan size={60} className={`${currentConf.accent} animate-pulse mb-4`} />
-                           <h3 className="text-2xl font-serif font-bold animate-pulse">{isAr ? 'فك شفرة المكونات...' : 'Decoding Nutrients...'}</h3>
+                        <div className="absolute inset-0 bg-brand-dark/60 backdrop-blur-sm flex flex-col items-center justify-center p-12 text-center text-white z-50">
+                           <div className="relative w-full h-full flex flex-col items-center justify-center">
+                              <div className="absolute top-0 left-0 w-full h-1 bg-brand-primary shadow-glow animate-scan" />
+                              <BrainCircuit size={80} className="text-brand-primary animate-pulse mb-6" />
+                              <h3 className="text-2xl font-serif font-bold italic tracking-widest animate-pulse">{isAr ? 'فك شفرة البيانات...' : 'Decoding Matrix...'}</h3>
+                           </div>
                         </div>
                       )}
 
@@ -107,35 +114,49 @@ const Hero: React.FC = () => {
                         <div className="absolute inset-x-6 bottom-6 bg-white/95 dark:bg-brand-dark/95 backdrop-blur-2xl rounded-[45px] p-8 border border-brand-primary/20 shadow-glow animate-fade-in-up z-50">
                            <div className="flex justify-between items-start mb-4">
                               <h4 className="text-2xl font-serif font-bold text-brand-dark dark:text-white">{lastAnalysisResult.summary}</h4>
-                              <button onClick={resetScanner} className="p-2 text-brand-dark/20 hover:text-brand-primary transition-colors bg-brand-dark/5 rounded-full">
-                                <RefreshCcw size={18} />
+                              <button onClick={resetScanner} className="p-2 text-brand-primary hover:bg-brand-primary/10 rounded-full transition-all">
+                                <RefreshCcw size={20} />
                               </button>
                            </div>
-                           <div className="flex justify-between items-center mb-6 bg-brand-primary/10 p-4 rounded-2xl">
-                              <span className="text-[10px] font-black uppercase tracking-widest text-brand-primary">{isAr ? 'إجمالي السعرات' : 'TOTAL LOAD'}</span>
+                           <div className="flex justify-between items-center mb-6 bg-brand-primary/10 p-4 rounded-2xl border border-brand-primary/20">
+                              <span className="text-[10px] font-black uppercase tracking-widest text-brand-primary">{isAr ? 'الطاقة المكتشفة' : 'DETECTED ENERGY'}</span>
                               <span className="text-2xl font-serif font-bold text-brand-primary">{lastAnalysisResult.totalCalories} KCAL</span>
                            </div>
-                           <button onClick={() => fileInputRef.current?.click()} className="w-full py-4 bg-brand-dark text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-primary transition-all">
-                              {isAr ? 'تحميل عينة جديدة' : 'LOAD NEW SPECIMEN'}
+                           <button onClick={resetScanner} className="w-full py-4 bg-brand-dark text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-primary transition-all">
+                              {isAr ? 'عينة جديدة' : 'NEW SPECIMEN'}
+                           </button>
+                        </div>
+                      )}
+
+                      {status === 'error' && (
+                        <div className="absolute inset-0 bg-red-500/10 backdrop-blur-md flex flex-col items-center justify-center p-12 text-center z-50">
+                           <AlertCircle size={60} className="text-red-500 mb-4" />
+                           <h3 className="text-xl font-serif font-bold text-brand-dark dark:text-white mb-6">{isAr ? 'فشل التحليل' : 'Analysis Failed'}</h3>
+                           <button onClick={handleAnalyze} className="px-8 py-3 bg-brand-dark text-white rounded-xl text-xs font-black uppercase tracking-widest">
+                              {isAr ? 'إعادة المحاولة' : 'RETRY'}
+                           </button>
+                           <button onClick={resetScanner} className="mt-4 text-brand-dark/40 dark:text-white/40 text-[10px] font-black uppercase tracking-widest underline">
+                              {isAr ? 'إلغاء' : 'CANCEL'}
                            </button>
                         </div>
                       )}
 
                       {status === 'idle' && (
-                         <div className="absolute inset-0 flex flex-col items-center justify-center bg-brand-dark/40 backdrop-blur-[2px] z-40">
-                            <button onClick={handleAnalyze} className={`w-24 h-24 rounded-full flex items-center justify-center ${currentConf.color} text-white shadow-glow hover:scale-110 transition-transform`}>
-                               <BrainCircuit size={40} />
+                         <div className="absolute inset-0 flex flex-col items-center justify-center bg-brand-dark/40 backdrop-blur-[2px] z-40 group">
+                            <button onClick={handleAnalyze} className={`w-24 h-24 rounded-full flex items-center justify-center ${currentConf.color} text-white shadow-glow group-hover:scale-110 transition-transform duration-500`}>
+                               <BrainCircuit size={40} className="group-hover:rotate-12 transition-transform" />
                             </button>
-                            <h4 className="text-xl font-serif font-bold text-white mt-6 italic">{isAr ? 'اضغط للتحليل' : 'Analyze Now'}</h4>
+                            <h4 className="text-xl font-serif font-bold text-white mt-6 italic tracking-widest">{isAr ? 'بدء التخليق' : 'Initialize Analysis'}</h4>
                          </div>
                       )}
                    </div>
                 ) : (
                    <div className="h-full w-full flex flex-col items-center justify-center p-12 text-center cursor-pointer group" onClick={() => fileInputRef.current?.click()}>
-                      <div className="w-32 h-32 rounded-[45px] border-2 border-dashed border-brand-primary/20 text-brand-primary/40 group-hover:text-brand-primary transition-all flex items-center justify-center mb-8">
-                         <UploadCloud size={48} />
+                      <div className="w-32 h-32 rounded-[45px] border-2 border-dashed border-brand-primary/20 text-brand-primary/40 group-hover:text-brand-primary group-hover:border-brand-primary/50 group-hover:bg-brand-primary/5 transition-all duration-700 flex items-center justify-center mb-8">
+                         <UploadCloud size={48} className="group-hover:-translate-y-2 transition-transform" />
                       </div>
-                      <h4 className="text-2xl font-serif font-bold text-brand-dark/30 dark:text-white/30">{isAr ? 'ارفع صورة الوجبة' : 'Upload Meal Image'}</h4>
+                      <h4 className="text-2xl font-serif font-bold text-brand-dark/30 dark:text-white/30 group-hover:text-brand-primary transition-colors">{isAr ? 'ارفع صورة الوجبة' : 'Upload Meal Image'}</h4>
+                      <p className="mt-4 text-[9px] font-black uppercase tracking-[0.4em] text-brand-dark/20 dark:text-white/10">{isAr ? 'جيمناي 3 فلاش نشط' : 'GEMINI 3 FLASH ACTIVE'}</p>
                    </div>
                 )}
              </div>
