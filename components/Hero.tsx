@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { RotateCcw, Baby, HeartPulse, Zap, Camera, Utensils, Share2, Activity, Sparkles, AlertCircle, RefreshCw, UploadCloud, FileSearch, Check, Copy, Clock, Key, ExternalLink, Loader2, Info, ShieldAlert, Terminal } from 'lucide-react';
+import { RotateCcw, Baby, HeartPulse, Zap, Camera, Utensils, Share2, Activity, AlertCircle, UploadCloud, Check, Copy, Key, Loader2, ShieldAlert, Terminal } from 'lucide-react';
 import { SectionId, BioPersona } from '../types.ts';
 import { useApp } from '../context/AppContext.tsx';
 import { analyzeMealImage } from '../services/geminiService.ts';
@@ -76,6 +76,7 @@ const Hero: React.FC = () => {
     setShareStatus('idle');
     setIsConnectingKey(false);
     if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleConnectPersonalKey = async () => {
@@ -85,7 +86,7 @@ const Hero: React.FC = () => {
     if (aistudio && typeof aistudio.openSelectKey === 'function') {
       try {
         await aistudio.openSelectKey();
-        setTimeout(() => handleReset(), 500);
+        handleReset();
       } catch (e) {
         setIsConnectingKey(false);
       }
@@ -93,10 +94,10 @@ const Hero: React.FC = () => {
       setTimeout(() => {
         setIsConnectingKey(false);
         setErrorMsg({
-          title: isAr ? "نظام التشخيص الشخصي" : "Personal Key System",
+          title: isAr ? "نظام الربط الخارجي" : "External Key System",
           detail: isAr 
-            ? "ربط المفاتيح التلقائي يعمل داخل بيئة AI Studio فقط. لاستخدام مفتاحك هنا، يرجى ضبطه كمتغير بيئة في Vercel."
-            : "Automatic key linking is limited to AI Studio. To use your key here, set it as an Environment Variable in Vercel.",
+            ? "الربط التلقائي متاح في AI Studio. للنشر العام، يرجى ضبط API_KEY في إعدادات Vercel."
+            : "Auto-linking is for AI Studio. For public deploy, set API_KEY in Vercel Environment Variables.",
           type: 'help'
         });
       }, 1000);
@@ -149,16 +150,15 @@ const Hero: React.FC = () => {
     } catch (err: any) {
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       setStatus('error');
-      
       const isQuota = err.message === "QUOTA_EXCEEDED";
       
       setErrorMsg({
         title: isQuota 
           ? (isAr ? "تحجيم الأداء الأيضي" : "Metabolic Throttling")
-          : (isAr ? "فشل في الوحدة" : "Module Failure"),
+          : (isAr ? "خطأ في المعالجة" : "Processing Fault"),
         detail: isQuota
-          ? (isAr ? "وصل المختبر العام للحد الأقصى. يرجى تزويد النظام بمفتاح API خاص بك في إعدادات Vercel." : "The shared lab reached its daily limit. Please provide your own API_KEY in Vercel settings.")
-          : (isAr ? `خطأ تقني: ${err.message}` : `Technical fault: ${err.message}`),
+          ? (isAr ? "تم الوصول للحد الأقصى للطلبات المجانية. يرجى الانتظار قليلاً أو إضافة مفتاحك الخاص." : "Shared lab capacity reached. Please wait a moment or provide your own API key in Vercel settings.")
+          : (isAr ? `تعذر الاتصال بالوحدة: ${err.message}` : `Unit connection failed: ${err.message}`),
         type: isQuota ? 'quota' : 'general'
       });
     }
@@ -167,12 +167,12 @@ const Hero: React.FC = () => {
   const handleShare = async () => {
     if (!lastAnalysisResult) return;
     const shareText = isAr 
-      ? `📊 تقرير التغذية:\n📝 ${lastAnalysisResult.summary}\n🔥 السعرات: ${lastAnalysisResult.totalCalories}\n💡 ${lastAnalysisResult.personalizedAdvice}`
-      : `📊 Nutrition Report:\n📝 ${lastAnalysisResult.summary}\n🔥 Calories: ${lastAnalysisResult.totalCalories}\n💡 ${lastAnalysisResult.personalizedAdvice}`;
+      ? `📊 تقرير التغذية من Old Town Lab:\n📝 ${lastAnalysisResult.summary}\n🔥 السعرات: ${lastAnalysisResult.totalCalories}`
+      : `📊 Old Town Lab Nutrition Report:\n📝 ${lastAnalysisResult.summary}\n🔥 Calories: ${lastAnalysisResult.totalCalories}`;
 
     if (navigator.share) {
       try {
-        await navigator.share({ title: 'Specimen Report', text: shareText, url: window.location.href });
+        await navigator.share({ title: 'Biometric Specimen Report', text: shareText, url: window.location.href });
         setShareStatus('shared');
         setTimeout(() => setShareStatus('idle'), 3000);
       } catch (err) { copyToClipboard(shareText); }
@@ -337,11 +337,11 @@ const Hero: React.FC = () => {
                                 className="w-full py-5 bg-brand-primary text-brand-dark rounded-2xl text-[10px] font-black uppercase tracking-[0.4em] shadow-glow flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-70"
                               >
                                  {isConnectingKey ? <Loader2 size={16} className="animate-spin" /> : <Key size={16} />} 
-                                 {isAr ? 'ربط المفتاح الشخصي' : 'LINK PERSONAL KEY'}
+                                 {isAr ? 'تزويد بمفتاح خاص' : 'LINK PERSONAL KEY'}
                               </button>
                             ) : null}
                             <button onClick={handleReset} className={`w-full py-5 bg-white/5 text-white rounded-2xl text-[9px] font-black uppercase tracking-[0.4em] border border-white/10 transition-all hover:bg-white/10`}>
-                               {isAr ? 'إعادة التشغيل' : 'RESTART SYSTEM'}
+                               {isAr ? 'إعادة تشغيل النظام' : 'RESTART SYSTEM'}
                             </button>
                          </div>
                       </div>
