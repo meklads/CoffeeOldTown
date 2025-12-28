@@ -2,13 +2,15 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { UserHealthProfile, MealAnalysisResult, MealPlanRequest, DayPlan, FeedbackEntry } from '../types.ts';
 
-// تهيئة كائن الـ AI مباشرة. 
-// ملاحظة: يتم استخدام المفتاح من process.env.API_KEY الموفر من البيئة.
-const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 /**
- * تحليل الوجبات - يعمل مباشرة في المتصفح
+ * الحصول على نسخة من AI مع التأكد من وجود المفتاح
  */
+const getAI = () => {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) throw new Error("KEY_MISSING");
+  return new GoogleGenAI({ apiKey });
+};
+
 export const analyzeMealImage = async (base64Image: string, profile: UserHealthProfile, lang: string = 'en'): Promise<MealAnalysisResult | null> => {
   try {
     const ai = getAI();
@@ -20,7 +22,7 @@ export const analyzeMealImage = async (base64Image: string, profile: UserHealthP
       contents: {
         parts: [
           { inlineData: { data: base64Data, mimeType: 'image/jpeg' } },
-          { text: `SYSTEM_TASK: Dissect meal for ${persona} protocol. Lang: ${lang}. Provide JSON matching schema.` }
+          { text: `SYSTEM: Analyze for ${persona} protocol. Language: ${lang}. Return JSON.` }
         ]
       },
       config: {
@@ -28,28 +30,10 @@ export const analyzeMealImage = async (base64Image: string, profile: UserHealthP
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            ingredients: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  name: { type: Type.STRING },
-                  calories: { type: Type.NUMBER }
-                },
-                required: ["name", "calories"]
-              }
-            },
+            ingredients: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, calories: { type: Type.NUMBER } }, required: ["name", "calories"] } },
             totalCalories: { type: Type.NUMBER },
             healthScore: { type: Type.NUMBER },
-            macros: {
-              type: Type.OBJECT,
-              properties: {
-                protein: { type: Type.NUMBER },
-                carbs: { type: Type.NUMBER },
-                fat: { type: Type.NUMBER }
-              },
-              required: ["protein", "carbs", "fat"]
-            },
+            macros: { type: Type.OBJECT, properties: { protein: { type: Type.NUMBER }, carbs: { type: Type.NUMBER }, fat: { type: Type.NUMBER } }, required: ["protein", "carbs", "fat"] },
             summary: { type: Type.STRING },
             personalizedAdvice: { type: Type.STRING }
           },
@@ -58,81 +42,33 @@ export const analyzeMealImage = async (base64Image: string, profile: UserHealthP
       }
     });
 
-    const result = JSON.parse(response.text.trim());
-    return {
-      ...result,
-      imageUrl: base64Image,
-      timestamp: new Date().toLocaleString()
-    };
+    const text = response.text;
+    if (!text) return null;
+    return { ...JSON.parse(text.trim()), imageUrl: base64Image, timestamp: new Date().toLocaleString() };
   } catch (error: any) {
-    console.error("Analysis Error:", error);
+    if (error.message?.includes("not found")) throw new Error("KEY_INVALID");
     throw error;
   }
 };
 
-/**
- * تخليق الخطط الغذائية (Bio Synthesis) - تم إصلاحه ليعمل مباشرة
- */
 export const generateMealPlan = async (request: MealPlanRequest, lang: string, feedback: FeedbackEntry[] = []): Promise<DayPlan | null> => {
   try {
     const ai = getAI();
     const persona = request.persona || 'GENERAL';
     const language = lang === 'ar' ? 'Arabic' : 'English';
     
-    const prompt = `Act as a Metabolic Scientist. 
-    Task: Synthesize a 1-day nutrition plan for goal: ${request.goal}.
-    Target Persona: ${persona}.
-    History context: ${JSON.stringify(feedback.slice(-3))}.
-    Response must be in ${language}.`;
-
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
-      contents: prompt,
+      contents: `Synthesize 1-day ${persona} plan for ${request.goal} in ${language}. JSON format.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            breakfast: {
-              type: Type.OBJECT,
-              properties: {
-                name: { type: Type.STRING },
-                calories: { type: Type.STRING },
-                protein: { type: Type.STRING },
-                description: { type: Type.STRING }
-              },
-              required: ["name", "calories", "protein", "description"]
-            },
-            lunch: {
-              type: Type.OBJECT,
-              properties: {
-                name: { type: Type.STRING },
-                calories: { type: Type.STRING },
-                protein: { type: Type.STRING },
-                description: { type: Type.STRING }
-              },
-              required: ["name", "calories", "protein", "description"]
-            },
-            dinner: {
-              type: Type.OBJECT,
-              properties: {
-                name: { type: Type.STRING },
-                calories: { type: Type.STRING },
-                protein: { type: Type.STRING },
-                description: { type: Type.STRING }
-              },
-              required: ["name", "calories", "protein", "description"]
-            },
-            snack: {
-              type: Type.OBJECT,
-              properties: {
-                name: { type: Type.STRING },
-                calories: { type: Type.STRING },
-                protein: { type: Type.STRING },
-                description: { type: Type.STRING }
-              },
-              required: ["name", "calories", "protein", "description"]
-            },
+            breakfast: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, calories: { type: Type.STRING }, protein: { type: Type.STRING }, description: { type: Type.STRING } }, required: ["name", "calories", "protein", "description"] },
+            lunch: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, calories: { type: Type.STRING }, protein: { type: Type.STRING }, description: { type: Type.STRING } }, required: ["name", "calories", "protein", "description"] },
+            dinner: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, calories: { type: Type.STRING }, protein: { type: Type.STRING }, description: { type: Type.STRING } }, required: ["name", "calories", "protein", "description"] },
+            snack: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, calories: { type: Type.STRING }, protein: { type: Type.STRING }, description: { type: Type.STRING } }, required: ["name", "calories", "protein", "description"] },
             totalCalories: { type: Type.STRING },
             advice: { type: Type.STRING }
           },
@@ -142,15 +78,18 @@ export const generateMealPlan = async (request: MealPlanRequest, lang: string, f
       }
     });
 
-    return JSON.parse(response.text.trim());
+    const text = response.text;
+    if (!text) return null;
+    return JSON.parse(text.trim());
   } catch (error: any) {
-    console.error("Synthesis Error:", error);
+    if (error.message?.includes("not found")) throw new Error("KEY_INVALID");
     throw error;
   }
 };
 
 /**
- * توليد الأيقونات (Mascot) - يعمل مباشرة
+ * توليد تميمة (Mascot) باستخدام موديل توليد الصور
+ * Fix: Exporting generateMascot to fix the missing member error in MascotIcon.tsx
  */
 export const generateMascot = async (prompt: string): Promise<string | null> => {
   try {
@@ -158,18 +97,28 @@ export const generateMascot = async (prompt: string): Promise<string | null> => 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
-        parts: [{ text: `Minimalist mascot icon for: ${prompt}. White background.` }]
+        parts: [{ text: `High-quality, professional, minimalist mascot icon for: ${prompt}. Vector style, sharp edges, isolated on a clean white background.` }]
       },
-      config: { imageConfig: { aspectRatio: "1:1" } }
+      config: {
+        imageConfig: {
+          aspectRatio: "1:1"
+        }
+      }
     });
 
-    for (const part of response.candidates[0].content.parts) {
-      if (part.inlineData) {
-        return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+    // البحث عن جزء الصورة في الرد (Iterate through all parts as per guidelines)
+    if (response.candidates?.[0]?.content?.parts) {
+      for (const part of response.candidates[0].content.parts) {
+        if (part.inlineData) {
+          const base64EncodeString: string = part.inlineData.data;
+          return `data:${part.inlineData.mimeType};base64,${base64EncodeString}`;
+        }
       }
     }
     return null;
-  } catch (error) {
+  } catch (error: any) {
+    console.error("Mascot generation failed:", error);
+    if (error.message?.includes("not found")) throw new Error("KEY_INVALID");
     return null;
   }
 };
