@@ -1,12 +1,13 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { RotateCcw, Baby, HeartPulse, Zap, Camera, Utensils, Share2, Activity, AlertCircle, UploadCloud, Check, Copy, Key, Loader2, ShieldAlert, Terminal } from 'lucide-react';
+import { RotateCcw, Baby, HeartPulse, Zap, Camera, Utensils, Share2, Activity, AlertCircle, UploadCloud, Check, Copy, Key, Loader2, ShieldAlert, Terminal, Settings, ArrowRight } from 'lucide-react';
 import { SectionId, BioPersona } from '../types.ts';
 import { useApp } from '../context/AppContext.tsx';
 import { analyzeMealImage } from '../services/geminiService.ts';
 
 const Hero: React.FC = () => {
-  const { incrementScans, setLastAnalysisResult, lastAnalysisResult, currentPersona, setCurrentPersona, language } = useApp();
+  // Destructure setView from useApp to fix the "Cannot find name 'setView'" error
+  const { incrementScans, setLastAnalysisResult, lastAnalysisResult, currentPersona, setCurrentPersona, language, setView } = useApp();
   
   const [image, setImage] = useState<string | null>(lastAnalysisResult?.imageUrl || null);
   const [status, setStatus] = useState<'idle' | 'processing' | 'loading' | 'error' | 'success'>(
@@ -15,36 +16,74 @@ const Hero: React.FC = () => {
   
   const [progress, setProgress] = useState(0);
   const [loadingStep, setLoadingStep] = useState('');
-  const [errorMsg, setErrorMsg] = useState<{title: string, detail: string, type?: 'quota' | 'general' | 'help'} | null>(null);
+  const [errorMsg, setErrorMsg] = useState<{title: string, detail: string, type: 'quota' | 'config' | 'general'} | null>(null);
   const [shareStatus, setShareStatus] = useState<'idle' | 'shared' | 'error'>('idle');
-  const [isConnectingKey, setIsConnectingKey] = useState(false);
   
   const isAr = language === 'ar';
   const fileInputRef = useRef<HTMLInputElement>(null);
   const progressIntervalRef = useRef<number | null>(null);
 
-  // وظيفة لضغط الصورة وتصغير حجمها لضمان التوافق مع Vercel
+  // إعدادات البروتوكولات الأربعة
+  const personaConfigs: Record<BioPersona, { label: string, icon: React.ReactNode, slogan: string, color: string, border: string, accent: string, bg: string }> = {
+    GENERAL: { 
+        label: isAr ? 'بروتوكول عام' : 'GENERAL PROTOCOL', 
+        icon: <Utensils size={20} />, 
+        slogan: isAr ? 'تغذية متوازنة' : 'Balanced Nutrition',
+        color: 'bg-[#C2A36B]', 
+        accent: 'text-[#C2A36B]', 
+        border: 'border-[#C2A36B]',
+        bg: 'bg-[#C2A36B]/10'
+    },
+    ATHLETE: { 
+        label: isAr ? 'بروتوكول الرياضي' : 'ATHLETE MODE', 
+        icon: <Zap size={20} />, 
+        slogan: isAr ? 'أداء واستشفاء' : 'Power & Recovery',
+        color: 'bg-orange-500', 
+        accent: 'text-orange-500', 
+        border: 'border-orange-500',
+        bg: 'bg-orange-500/10'
+    },
+    DIABETIC: { 
+        label: isAr ? 'إدارة السكري' : 'DIABETIC CARE', 
+        icon: <HeartPulse size={20} />, 
+        slogan: isAr ? 'توازن الجلوكوز' : 'Glucose Balance',
+        color: 'bg-blue-500', 
+        accent: 'text-blue-500', 
+        border: 'border-blue-500',
+        bg: 'bg-blue-500/10'
+    },
+    PREGNANCY: { 
+        label: isAr ? 'رعاية الحامل' : 'PREGNANCY SAFE', 
+        icon: <Baby size={20} />, 
+        slogan: isAr ? 'نمو وصحة' : 'Growth & Vitality',
+        color: 'bg-pink-500', 
+        accent: 'text-pink-500', 
+        border: 'border-pink-500',
+        bg: 'bg-pink-500/10'
+    }
+  };
+
+  const currentConf = personaConfigs[currentPersona];
+
   const compressImage = (base64: string): Promise<string> => {
     return new Promise((resolve) => {
       const img = new Image();
       img.src = base64;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 1000; // حجم مثالي للذكاء الاصطناعي
+        const MAX_SIZE = 800;
         let width = img.width;
         let height = img.height;
-
-        if (width > MAX_WIDTH) {
-          height *= MAX_WIDTH / width;
-          width = MAX_WIDTH;
+        if (width > height) {
+          if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; }
+        } else {
+          if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; }
         }
-
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        // ضغط بجودة 0.7 لتقليل الحجم بشكل كبير مع الحفاظ على التفاصيل
-        resolve(canvas.toDataURL('image/jpeg', 0.7));
+        resolve(canvas.toDataURL('image/jpeg', 0.6));
       };
     });
   };
@@ -58,7 +97,6 @@ const Hero: React.FC = () => {
         const compressed = await compressImage(reader.result as string);
         setImage(compressed);
         setStatus('idle');
-        setProgress(0);
       };
       reader.readAsDataURL(file);
     }
@@ -70,34 +108,8 @@ const Hero: React.FC = () => {
     setProgress(0);
     setLastAnalysisResult(null);
     setErrorMsg(null);
-    setShareStatus('idle');
-    setIsConnectingKey(false);
     if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
     if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  const handleConnectPersonalKey = async () => {
-    const aistudio = (window as any).aistudio;
-    setIsConnectingKey(true);
-    if (aistudio && typeof aistudio.openSelectKey === 'function') {
-      try {
-        await aistudio.openSelectKey();
-        handleReset();
-      } catch (e) {
-        setIsConnectingKey(false);
-      }
-    } else {
-      setTimeout(() => {
-        setIsConnectingKey(false);
-        setErrorMsg({
-          title: isAr ? "نظام الربط الشخصي" : "Personal Key Link",
-          detail: isAr 
-            ? "الربط متاح في AI Studio. للنشر الخارجي، يجب إضافة API_KEY في إعدادات Vercel." 
-            : "Direct link is for AI Studio. For public use, add API_KEY to Vercel Settings.",
-          type: 'help'
-        });
-      }, 1000);
-    }
   };
 
   const handleAnalyze = async () => {
@@ -107,16 +119,16 @@ const Hero: React.FC = () => {
     setErrorMsg(null);
     
     const steps = isAr 
-      ? ['ضغط البيانات...', 'تشفير العينة...', 'تحليل بصمة الأيض...', 'توليد التقرير...'] 
-      : ['Compressing Data...', 'Encrypting Specimen...', 'Metabolic Analysis...', 'Synthesizing Report...'];
+      ? ['تحسين الصورة...', 'تشفير البيانات...', 'تحليل بصمة الأيض...', 'توليد التقرير...'] 
+      : ['Optimizing Image...', 'Encoding Data...', 'Metabolic Analysis...', 'Generating Report...'];
     
     let currentStepIdx = 0;
     setLoadingStep(steps[0]);
 
     progressIntervalRef.current = window.setInterval(() => {
       setProgress(prev => {
-        const next = prev + Math.floor(Math.random() * 8) + 1;
-        if (next >= 99) return 99;
+        const next = prev + Math.floor(Math.random() * 10) + 1;
+        if (next >= 98) return 98;
         const stepIdx = Math.floor((next / 100) * steps.length);
         if (stepIdx !== currentStepIdx && stepIdx < steps.length) {
           currentStepIdx = stepIdx;
@@ -124,7 +136,7 @@ const Hero: React.FC = () => {
         }
         return next;
       });
-    }, 100);
+    }, 80);
 
     try {
       const result = await analyzeMealImage(image, {
@@ -138,246 +150,198 @@ const Hero: React.FC = () => {
       setProgress(100);
       
       if (result) {
-        const finalResult = { ...result, timestamp: new Date().toLocaleString(), imageUrl: image };
-        setLastAnalysisResult(finalResult);
-        incrementScans(finalResult);
+        setLastAnalysisResult({ ...result, imageUrl: image });
+        incrementScans(result);
         setStatus('success');
       }
     } catch (err: any) {
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       setStatus('error');
-      const isQuota = err.message === "QUOTA_EXCEEDED";
       
+      const isQuota = err.message === "QUOTA_EXCEEDED";
+      const isConfig = err.message.includes("CONFIG_ERROR") || err.message.includes("API_KEY");
+
       setErrorMsg({
-        title: isQuota ? (isAr ? "تحجيم الأداء" : "Throttling") : (isAr ? "فشل الوحدة" : "Module Fault"),
-        detail: isQuota
-          ? (isAr ? "وصل المفتاح المشترك للحد الأقصى. يرجى استخدام مفتاحك الخاص في Vercel." : "API Limit reached. Please set your own API_KEY in Vercel Environment Variables.")
-          : (isAr ? `خطأ تقني: ${err.message}` : `Technical Error: ${err.message}`),
-        type: isQuota ? 'quota' : 'general'
+        title: isConfig ? (isAr ? "خطأ في الإعدادات" : "Configuration Error") : isQuota ? (isAr ? "تحجيم الأداء" : "Throttling") : (isAr ? "خطأ في الاتصال" : "Connection Error"),
+        detail: isConfig 
+          ? (isAr ? "مفتاح API مفقود في Vercel. يرجى إضافته في الإعدادات وإعادة النشر." : "API_KEY is missing from Vercel variables. Add it and redeploy.")
+          : isQuota 
+            ? (isAr ? "تم الوصول للحد الأقصى للطلبات. جرب مجدداً بعد دقيقة." : "Free tier limit reached. Please wait 60 seconds.")
+            : (isAr ? "السيرفر استغرق وقتاً طويلاً أو الصورة كبيرة جداً." : "Server timeout or payload too large for Vercel Hobby."),
+        type: isConfig ? 'config' : isQuota ? 'quota' : 'general'
       });
     }
   };
 
-  const handleShare = async () => {
-    if (!lastAnalysisResult) return;
-    const shareText = isAr 
-      ? `📊 تقرير التغذية:\n📝 ${lastAnalysisResult.summary}\n🔥 السعرات: ${lastAnalysisResult.totalCalories}`
-      : `📊 Nutrition Report:\n📝 ${lastAnalysisResult.summary}\n🔥 Calories: ${lastAnalysisResult.totalCalories}`;
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: 'Specimen Report', text: shareText, url: window.location.href });
-        setShareStatus('shared');
-        setTimeout(() => setShareStatus('idle'), 3000);
-      } catch (err) { copyToClipboard(shareText); }
-    } else { copyToClipboard(shareText); }
-  };
-
-  const copyToClipboard = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setShareStatus('shared');
-      setTimeout(() => setShareStatus('idle'), 3000);
-    } catch (err) { setShareStatus('error'); }
-  };
-
-  const personaConfigs: Record<BioPersona, { label: string, icon: React.ReactNode, slogan: string, color: string, border: string, accent: string }> = {
-    GENERAL: { label: isAr ? 'عام' : 'GENERAL', icon: <Utensils size={14} />, slogan: isAr ? 'يومي' : 'Daily', color: 'bg-[#C2A36B]', accent: 'text-[#C2A36B]', border: 'border-[#C2A36B]' },
-    PREGNANCY: { label: isAr ? 'حمل' : 'PREGNANCY', icon: <Baby size={14} />, slogan: isAr ? 'نمو' : 'Growth', color: 'bg-[#E5C1CD]', accent: 'text-[#E5C1CD]', border: 'border-[#E5C1CD]' },
-    DIABETIC: { label: isAr ? 'سكري' : 'DIABETIC', icon: <HeartPulse size={14} />, slogan: isAr ? 'توازن' : 'Sync', color: 'bg-[#64B5F6]', accent: 'text-[#64B5F6]', border: 'border-[#64B5F6]' },
-    ATHLETE: { label: isAr ? 'رياضي' : 'ATHLETE', icon: <Zap size={14} />, slogan: isAr ? 'أداء' : 'Power', color: 'bg-[#FF7043]', accent: 'text-[#FF7043]', border: 'border-[#FF7043]' }
-  };
-
-  const activeConfig = personaConfigs[currentPersona];
-
   return (
-    <section id={SectionId.PHASE_01_SCAN} className="relative h-screen bg-brand-dark flex items-center justify-center overflow-hidden pt-16 lg:pt-0">
-      <div className="max-w-7xl mx-auto px-4 lg:px-6 w-full h-full flex flex-col lg:flex-row lg:items-center lg:gap-20">
-        
-        {/* Branding Column */}
-        <div className="lg:w-[45%] flex flex-col justify-start lg:justify-center py-4 lg:py-6 animate-fade-in z-20 space-y-4 lg:space-y-12">
-          <div className="space-y-2 lg:space-y-6 text-center lg:text-left">
-            <h1 className="text-3xl md:text-5xl lg:text-8xl font-serif font-bold text-white leading-tight lg:leading-[0.85] tracking-tighter">
-              Precision <span className={`italic font-normal transition-colors duration-1000 ${activeConfig.accent}`}>Biometrics.</span>
-            </h1>
-            <p className="hidden lg:block text-white/30 text-base italic max-w-sm leading-relaxed">
-              {isAr ? 'اختر البروتوكول لتعديل مخرجات التحليل الجزيئي.' : 'Select protocol to calibrate molecular diagnostic output.'}
-            </p>
-          </div>
-
-          <div className="hidden lg:grid grid-cols-2 gap-4 max-w-md">
-            {(Object.keys(personaConfigs) as BioPersona[]).map((id) => {
-              const p = personaConfigs[id];
-              const isActive = currentPersona === id;
-              return (
-                <button
-                  key={id}
-                  onClick={() => setCurrentPersona(id)}
-                  className={`group p-6 rounded-[35px] border transition-all duration-500 text-left relative overflow-hidden h-[140px] cursor-pointer active:scale-95
-                    ${isActive ? `${p.color} ${p.border} text-brand-dark scale-[1.02]` : 'bg-white/5 border-white/5 text-white/40 hover:bg-white/10'}`}
-                >
-                  <div className="flex justify-between items-start">
-                     <span className={`text-[7px] font-black uppercase tracking-widest block transition-colors duration-500 ${isActive ? 'text-brand-dark/60' : 'opacity-50 group-hover:text-white/60'}`}>PROTO</span>
-                     <div className={`transition-all duration-500 ${isActive ? 'opacity-100 text-brand-dark' : 'opacity-20 group-hover:opacity-100'}`}>
-                        {p.icon}
-                     </div>
-                  </div>
-                  <div className="mt-auto">
-                    <span className="text-lg font-sans font-bold block leading-none mb-1">{p.label}</span>
-                    <span className={`text-[9px] italic font-medium block transition-colors duration-500 ${isActive ? 'text-brand-dark/50' : 'opacity-30'}`}>{p.slogan}</span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        
-        {/* The Diagnostic Scanner Unit */}
-        <div className="flex-1 lg:flex-none lg:w-[55%] w-full flex flex-col items-center lg:items-end justify-center relative z-10 px-2 lg:px-0">
-           <div className={`w-full max-w-[420px] lg:max-w-[480px] aspect-[4/5] bg-[#0A0908] rounded-[40px] lg:rounded-[60px] border transition-all duration-700 ${activeConfig.border} shadow-[0_40px_80px_-20px_rgba(0,0,0,1)] flex flex-col relative overflow-hidden`}>
-              <div className="flex-1 m-2 lg:m-4 rounded-[30px] lg:rounded-[45px] bg-[#050505] overflow-hidden flex flex-col border border-white/5">
-                 
-                 <div className="p-4 lg:p-6 flex justify-between items-center bg-white/[0.02] border-b border-white/5 shrink-0">
-                    <div className="flex items-center gap-2">
-                       <div className={`w-1 h-1 rounded-full animate-pulse transition-colors duration-1000 ${activeConfig.color}`} />
-                       <span className="text-[7px] font-black text-white/30 uppercase tracking-[0.4em]">
-                         {status === 'loading' ? (isAr ? 'جاري الفحص...' : 'SCAN ACTIVE') : 'INTERFACE_v5'}
-                       </span>
-                    </div>
-                    {(image || status !== 'idle') && (
-                      <button onClick={handleReset} className="text-white/10 hover:text-brand-primary transition-all flex items-center gap-2 group/reset">
-                         <span className="text-[7px] font-black tracking-widest uppercase">{isAr ? 'إعادة ضبط' : 'RESET'}</span>
-                         <RotateCcw size={10} className="group-hover:rotate-180 transition-transform duration-500" />
-                      </button>
-                    )}
-                 </div>
-
-                 <div className="flex-1 overflow-y-auto no-scrollbar scroll-smooth p-4 lg:p-8 flex flex-col justify-center relative">
-                    {status === 'idle' && !image ? (
-                      <div onClick={() => fileInputRef.current?.click()} className="h-full flex flex-col items-center justify-center text-center space-y-6 lg:space-y-10 cursor-pointer group/up py-4 animate-fade-in relative">
-                         <div className={`relative w-32 h-32 lg:w-44 lg:h-44 bg-white/[0.03] border-2 border-dashed border-white/10 rounded-[50px] flex items-center justify-center transition-all duration-700 group-hover/up:${activeConfig.border}`}>
-                            <div className="absolute inset-3 border border-white/5 rounded-[40px] animate-pulse-slow" />
-                            <div className={`transition-all duration-700 ${activeConfig.accent} group-hover/up:scale-125`}>
-                              <UploadCloud size={48} strokeWidth={1} />
-                            </div>
-                         </div>
-                         <div className="space-y-4 max-w-[280px]">
-                            <h4 className="text-2xl lg:text-3xl font-serif font-bold italic text-white/80">{isAr ? 'تلقيم العينة البيولوجية' : 'Insert Biometric Sample'}</h4>
-                         </div>
-                      </div>
-                    ) : status === 'processing' ? (
-                      <div className="h-full flex flex-col items-center justify-center space-y-8 text-center animate-fade-in">
-                         <div className={`w-20 h-20 rounded-full border-2 border-t-transparent animate-spin ${activeConfig.accent} ${activeConfig.border}`} />
-                         <h5 className="text-lg font-serif italic text-white/60">{isAr ? 'معالجة جزيئات الصورة...' : 'Processing Specimen...'}</h5>
-                      </div>
-                    ) : status === 'idle' && image ? (
-                      <div className="h-full flex flex-col items-center justify-center space-y-6 lg:space-y-10 animate-fade-in">
-                         <div className="relative aspect-square w-full max-w-[200px] lg:max-w-[300px] rounded-[50px] overflow-hidden border-2 border-white/10 shadow-4xl bg-zinc-900">
-                            <img src={image} className="w-full h-full object-cover" alt="Sample" />
-                            <div className={`absolute top-0 left-0 w-full h-[3px] shadow-glow animate-scan transition-colors duration-1000 ${activeConfig.color}`} />
-                         </div>
-                         <button onClick={handleAnalyze} className={`w-full py-5 lg:py-6 text-brand-dark rounded-3xl font-black text-[10px] uppercase tracking-[0.6em] shadow-glow transition-all flex items-center justify-center gap-4 ${activeConfig.color} hover:scale-[1.02]`}>
-                            <Zap size={16} fill="currentColor" /> {isAr ? 'بدء الفحص الجزيئي' : 'INITIATE MOLECULAR SCAN'}
-                         </button>
-                      </div>
-                    ) : status === 'loading' ? (
-                      <div className="h-full flex flex-col items-center justify-center space-y-8 lg:space-y-12 animate-fade-in">
-                         <div className="relative w-36 h-36 lg:w-52 lg:h-52">
-                            <svg className="w-full h-full -rotate-90">
-                               <circle cx="50%" cy="50%" r="42%" stroke="currentColor" strokeWidth="1" fill="transparent" className="text-white/5" />
-                               <circle cx="50%" cy="50%" r="42%" stroke="currentColor" strokeWidth="6" fill="transparent" strokeDasharray="283" strokeDashoffset={283 - (283 * progress / 100)} className={`transition-all duration-500 ${activeConfig.accent}`} />
-                            </svg>
-                            <div className="absolute inset-0 flex flex-col items-center justify-center">
-                               <span className="text-4xl lg:text-6xl font-sans font-bold text-white">{progress}%</span>
-                               <Activity size={18} className={`mt-2 ${activeConfig.accent} animate-pulse`} />
-                            </div>
-                         </div>
-                         <h3 className={`font-black uppercase tracking-[0.6em] animate-pulse text-[9px] lg:text-[11px] ${activeConfig.accent}`}>{loadingStep}</h3>
-                      </div>
-                    ) : status === 'error' && errorMsg ? (
-                      <div className="h-full flex flex-col items-center justify-center p-6 lg:p-10 text-center animate-fade-in">
-                         <div className="mb-6">
-                            {errorMsg.type === 'quota' ? (
-                              <div className="relative">
-                                 <ShieldAlert size={48} className="text-brand-primary animate-pulse" />
-                                 <div className="absolute -inset-4 bg-brand-primary/10 rounded-full blur-xl" />
-                              </div>
-                            ) : errorMsg.type === 'help' ? (
-                              <Terminal size={48} className="text-brand-primary" />
-                            ) : (
-                              <AlertCircle size={48} className="text-red-500" />
-                            )}
-                         </div>
-                         
-                         <div className="space-y-4 mb-8">
-                            <h4 className={`text-2xl lg:text-4xl font-serif font-bold italic tracking-tight ${errorMsg.type === 'general' ? 'text-red-500' : 'text-brand-primary'}`}>
-                               {errorMsg.title}
-                            </h4>
-                            <p className="text-white/40 text-[11px] leading-relaxed max-w-xs mx-auto font-medium">
-                               {errorMsg.detail}
-                            </p>
-                         </div>
-                         
-                         <div className="flex flex-col gap-3 w-full">
-                            {(errorMsg.type === 'quota' || errorMsg.type === 'help') ? (
-                              <button 
-                                onClick={handleConnectPersonalKey} 
-                                disabled={isConnectingKey}
-                                className="w-full py-5 bg-brand-primary text-brand-dark rounded-2xl text-[10px] font-black uppercase tracking-[0.4em] shadow-glow flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-70"
-                              >
-                                 {isConnectingKey ? <Loader2 size={16} className="animate-spin" /> : <Key size={16} />} 
-                                 {isAr ? 'ربط مفتاح شخصي' : 'LINK PERSONAL KEY'}
-                              </button>
-                            ) : null}
-                            <button onClick={handleReset} className={`w-full py-5 bg-white/5 text-white rounded-2xl text-[9px] font-black uppercase tracking-[0.4em] border border-white/10 transition-all hover:bg-white/10`}>
-                               {isAr ? 'إعادة محاولة' : 'RESTART SYSTEM'}
-                            </button>
-                         </div>
-                      </div>
-                    ) : status === 'success' && lastAnalysisResult ? (
-                      <div className="w-full space-y-4 lg:space-y-6 animate-fade-in h-full flex flex-col justify-center">
-                         <div className="space-y-1">
-                            <span className={`text-[7px] font-black uppercase tracking-widest ${activeConfig.accent}`}>{isAr ? 'النتائج المستخلصة' : 'BIO-REPORT'}</span>
-                            <h2 className="text-sm lg:text-xl font-sans font-bold text-white tracking-tight">{lastAnalysisResult.summary}</h2>
-                         </div>
-                         <div className="grid grid-cols-2 gap-2 lg:gap-4">
-                            <div className="bg-white/5 p-4 rounded-[25px] border border-white/5">
-                               <span className="text-[6px] font-black uppercase text-white/30 block mb-1">ENERGY_LOAD</span>
-                               <div className="text-2xl font-sans font-bold text-white">{lastAnalysisResult.totalCalories}</div>
-                            </div>
-                            <div className="bg-white/5 p-4 rounded-[25px] border border-white/5">
-                               <span className="text-[6px] font-black uppercase text-white/30 block mb-1">HEALTH_SCORE</span>
-                               <div className="text-2xl font-sans font-bold text-white">{lastAnalysisResult.healthScore}%</div>
-                            </div>
-                         </div>
-                         <div className="p-5 bg-white/5 border border-white/10 rounded-[30px] italic text-white/80 text-[10px] lg:text-sm">
-                            "{lastAnalysisResult.personalizedAdvice}"
-                         </div>
-                         <div className="flex gap-2">
-                            <button onClick={handleReset} className="flex-1 py-4 bg-brand-primary text-brand-dark rounded-2xl flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-widest hover:scale-105 transition-all">
-                               <Camera size={14} /> {isAr ? 'فحص جديد' : 'NEW SCAN'}
-                            </button>
-                            <button 
-                              onClick={handleShare}
-                              className={`flex-1 py-4 rounded-2xl flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-widest border border-white/5 hover:scale-105 transition-all
-                                ${shareStatus === 'shared' ? 'bg-emerald-500 text-brand-dark' : 'bg-white/5 text-white'}`}
-                            >
-                               {shareStatus === 'shared' ? <Check size={14} /> : (navigator.share ? <Share2 size={14} /> : <Copy size={14} />)}
-                               {shareStatus === 'shared' ? (isAr ? 'تم النسخ' : 'COPIED') : (isAr ? 'مشاركة' : 'SHARE')}
-                            </button>
-                         </div>
-                      </div>
-                    ) : null}
-                 </div>
-
-                 <div className="p-3 border-t border-white/5 flex justify-between bg-white/[0.01] shrink-0">
-                    <span className="text-[6px] font-black text-white/10 uppercase tracking-[0.5em]">SYSTEM_STABLE_VERIFIED</span>
-                 </div>
+    <section id={SectionId.PHASE_01_SCAN} className="relative min-h-screen pt-32 pb-20 overflow-hidden bg-brand-light dark:bg-brand-dark transition-colors duration-1000">
+      <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-brand-primary/5 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/2" />
+      
+      <div className="max-w-7xl mx-auto px-6 relative z-10 h-full">
+        <div className="grid lg:grid-cols-12 gap-12 lg:gap-20 items-center">
+          
+          {/* Column 1: Branding & Persona Selection */}
+          <div className="lg:col-span-5 space-y-10 animate-fade-in">
+            <div className="space-y-6">
+              <div className="inline-flex items-center gap-3 px-4 py-2 bg-brand-dark dark:bg-white/5 text-brand-primary rounded-full shadow-lg border border-white/5">
+                <ShieldAlert size={14} />
+                <span className="text-[9px] font-black uppercase tracking-[0.4em]">{isAr ? 'نظام تحليل جزيئي معتمد' : 'MOLECULAR ANALYSIS VERIFIED'}</span>
               </div>
-           </div>
-        </div>
+              <h1 className="text-5xl md:text-7xl font-serif font-bold text-brand-dark dark:text-white tracking-tighter leading-[0.9]">
+                Metabolic <br /> 
+                <span className={`${currentConf.accent} italic font-normal transition-colors duration-700`}>{isAr ? 'التشخيص الذكي.' : 'Diagnostics.'}</span>
+              </h1>
+              <p className="text-brand-dark/50 dark:text-white/40 text-lg font-medium italic leading-relaxed max-w-sm">
+                {isAr ? 'اختر البروتوكول المناسب لحالتك الحيوية قبل بدء الفحص.' : 'Calibrate your biometric protocol before initiating the scan.'}
+              </p>
+            </div>
 
-        <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
+            {/* Persona Selection Grid - THE FOUR BUTTONS REINSTATED */}
+            <div className="grid grid-cols-2 gap-4">
+              {(Object.keys(personaConfigs) as BioPersona[]).map((key) => {
+                const conf = personaConfigs[key];
+                const isActive = currentPersona === key;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setCurrentPersona(key)}
+                    className={`group relative p-6 rounded-[35px] border transition-all duration-500 text-left overflow-hidden h-[120px] flex flex-col justify-between
+                      ${isActive ? `${conf.color} ${conf.border} text-white shadow-xl scale-[1.02]` : 'bg-white dark:bg-white/5 border-brand-dark/5 dark:border-white/5 text-brand-dark dark:text-white/40 hover:bg-brand-primary/5 hover:border-brand-primary/20'}`}
+                  >
+                    <div className="flex justify-between items-start">
+                       <div className={`p-2 rounded-xl transition-all duration-500 ${isActive ? 'bg-white/20 text-white' : 'bg-brand-dark/5 dark:bg-white/5 text-brand-primary'}`}>
+                          {conf.icon}
+                       </div>
+                       {isActive && <Check size={14} className="animate-fade-in" />}
+                    </div>
+                    <div>
+                      <span className="text-[14px] font-serif font-bold block leading-none mb-1">{conf.label}</span>
+                      <span className={`text-[9px] font-black uppercase tracking-widest block transition-colors duration-500 ${isActive ? 'text-white/60' : 'opacity-30'}`}>{conf.slogan}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            
+            <div className="pt-6 hidden lg:block">
+               <div className="flex items-center gap-4 text-brand-dark/20 dark:text-white/10 uppercase font-black text-[9px] tracking-[0.4em]">
+                  <Settings size={14} className="animate-spin-slow" />
+                  <span>{isAr ? 'تعديل المعلمات يتم آلياً بناءً على اختيارك' : 'PARAMETERS CALIBRATED AUTOMATICALLY'}</span>
+               </div>
+            </div>
+          </div>
+
+          {/* Column 2: The Scanner Unit */}
+          <div className="lg:col-span-7 flex flex-col items-center">
+             <div className={`relative w-full max-w-[500px] aspect-[4/5] bg-white dark:bg-zinc-900 rounded-[60px] lg:rounded-[80px] border-2 transition-all duration-700 ${currentConf.border} shadow-[0_60px_100px_-20px_rgba(0,0,0,0.3)] overflow-hidden group`}>
+                
+                {image ? (
+                   <div className="relative h-full w-full">
+                      <img src={image} className="w-full h-full object-cover transition-all duration-700 group-hover:scale-105" alt="Meal" />
+                      
+                      {status === 'loading' && (
+                        <div className="absolute inset-0 bg-brand-dark/90 backdrop-blur-xl flex flex-col items-center justify-center p-12 text-center animate-fade-in z-50">
+                           <div className="relative mb-10">
+                              <div className={`w-36 h-36 rounded-full border border-white/5 border-t-brand-primary animate-spin ${currentConf.accent}`} />
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                 <Terminal size={32} className={`${currentConf.accent} animate-pulse`} />
+                              </div>
+                           </div>
+                           <div className="space-y-4">
+                              <h3 className="text-2xl font-serif font-bold text-white tracking-tight">{loadingStep}</h3>
+                              <div className="w-64 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                 <div className={`h-full transition-all duration-300 ${currentConf.color}`} style={{ width: `${progress}%` }} />
+                              </div>
+                              <p className="text-[10px] text-white/40 uppercase tracking-[0.5em]">{progress}% Processed</p>
+                           </div>
+                        </div>
+                      )}
+
+                      {status === 'success' && lastAnalysisResult && (
+                        <div className="absolute inset-x-6 bottom-6 bg-white/95 dark:bg-brand-dark/95 backdrop-blur-xl rounded-[45px] p-8 border border-white/20 shadow-glow animate-fade-in-up z-50">
+                           <div className="flex justify-between items-start mb-6">
+                              <div className="space-y-1">
+                                 <span className={`text-[8px] font-black uppercase tracking-[0.4em] ${currentConf.accent}`}>{isAr ? 'تقرير الأيض' : 'METABOLIC_REPORT'}</span>
+                                 <h4 className="text-2xl font-serif font-bold text-brand-dark dark:text-white tracking-tight line-clamp-1">{lastAnalysisResult.summary}</h4>
+                              </div>
+                              <div className={`${currentConf.color} text-white px-5 py-3 rounded-2xl font-serif font-bold text-2xl`}>
+                                 {lastAnalysisResult.totalCalories} <span className="text-[10px] ml-1">KCAL</span>
+                              </div>
+                           </div>
+                           <div className="grid grid-cols-3 gap-4 py-6 border-y border-brand-dark/5 dark:border-white/5 mb-6">
+                              <div className="text-center">
+                                 <span className="text-[7px] font-black text-brand-dark/30 dark:text-white/20 uppercase tracking-widest block mb-1">PROTEIN</span>
+                                 <span className="text-lg font-serif font-bold text-brand-dark dark:text-white">{lastAnalysisResult.macros.protein}g</span>
+                              </div>
+                              <div className="text-center">
+                                 <span className="text-[7px] font-black text-brand-dark/30 dark:text-white/20 uppercase tracking-widest block mb-1">CARBS</span>
+                                 <span className="text-lg font-serif font-bold text-brand-dark dark:text-white">{lastAnalysisResult.macros.carbs}g</span>
+                              </div>
+                              <div className="text-center">
+                                 <span className="text-[7px] font-black text-brand-dark/30 dark:text-white/20 uppercase tracking-widest block mb-1">FAT</span>
+                                 <span className="text-lg font-serif font-bold text-brand-dark dark:text-white">{lastAnalysisResult.macros.fat}g</span>
+                              </div>
+                           </div>
+                           <div className="flex gap-2">
+                             <button onClick={handleReset} className={`flex-1 py-4 text-white rounded-2xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest transition-all ${currentConf.color} hover:scale-105`}>
+                                <RotateCcw size={14} /> {isAr ? 'إعادة' : 'RESET'}
+                             </button>
+                             <button onClick={() => setView('vaults')} className="flex-1 py-4 bg-white dark:bg-white/5 text-brand-dark dark:text-white border border-brand-dark/5 rounded-2xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest hover:bg-brand-dark hover:text-white transition-all">
+                                {isAr ? 'الأرشيف' : 'ARCHIVE'} <ArrowRight size={14} />
+                             </button>
+                           </div>
+                        </div>
+                      )}
+
+                      {status === 'error' && errorMsg && (
+                        <div className="absolute inset-0 bg-red-500/95 backdrop-blur-xl flex flex-col items-center justify-center p-12 text-center text-white animate-fade-in z-50">
+                           <AlertCircle size={64} className="mb-6 animate-bounce" />
+                           <h3 className="text-3xl font-serif font-bold mb-4">{errorMsg.title}</h3>
+                           <p className="text-lg font-medium italic opacity-80 mb-8 max-w-xs">{errorMsg.detail}</p>
+                           <button onClick={handleReset} className="bg-white text-red-500 px-10 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-brand-dark hover:text-white transition-all shadow-2xl">
+                              {isAr ? 'إعادة التشغيل' : 'REBOOT SYSTEM'}
+                           </button>
+                        </div>
+                      )}
+
+                      {status === 'idle' && (
+                         <div className="absolute inset-0 flex items-center justify-center bg-brand-dark/40 group-hover:bg-brand-dark/20 transition-all z-40">
+                            <button 
+                              onClick={handleAnalyze}
+                              className={`w-28 h-28 rounded-full flex items-center justify-center shadow-glow animate-pulse hover:scale-110 transition-transform ${currentConf.color} text-white`}
+                            >
+                               <Zap size={44} fill="currentColor" />
+                            </button>
+                         </div>
+                      )}
+                   </div>
+                ) : (
+                   <div className="h-full w-full flex flex-col items-center justify-center p-12 text-center space-y-10 bg-brand-cream/10 dark:bg-brand-dark/50 cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                      <div className="relative group">
+                         <div className={`w-36 h-36 rounded-[50px] border-2 border-dashed flex items-center justify-center transition-all duration-700 ${currentConf.border} ${currentConf.accent} group-hover:scale-110`}>
+                            <UploadCloud size={64} strokeWidth={1} />
+                         </div>
+                         <div className={`absolute -top-3 -right-3 w-10 h-10 rounded-full flex items-center justify-center text-white shadow-glow animate-bounce ${currentConf.color}`}>
+                            <Camera size={18} />
+                         </div>
+                      </div>
+                      <div className="space-y-4">
+                         <h4 className="text-3xl font-serif font-bold text-brand-dark/60 dark:text-white/40 italic">{isAr ? 'وحدة المسح جاهزة' : 'Biometric Input Ready.'}</h4>
+                         <p className="text-[10px] font-black text-brand-dark/20 dark:text-white/10 uppercase tracking-[0.5em]">{isAr ? 'ارفع صورة الوجبة للمختبر' : 'UPLOAD SPECIMEN TO LAB'}</p>
+                      </div>
+                      <div className="flex flex-col items-center gap-2">
+                        <span className={`text-[8px] font-black uppercase tracking-widest ${currentConf.accent}`}>{isAr ? 'البروتوكول الفعال:' : 'ACTIVE_PROTOCOL:'} {currentConf.label}</span>
+                        <div className={`w-32 h-1 rounded-full ${currentConf.bg} overflow-hidden`}>
+                           <div className={`h-full w-full animate-scan ${currentConf.color}`} />
+                        </div>
+                      </div>
+                   </div>
+                )}
+             </div>
+          </div>
+        </div>
       </div>
+      <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
     </section>
   );
 };
