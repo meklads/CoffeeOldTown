@@ -15,7 +15,6 @@ const mealAnalysisSchema = {
   required: ["ingredients", "totalCalories", "healthScore", "macros", "summary", "personalizedAdvice"]
 };
 
-// Fix: Added mealPlanSchema for the generateMealPlan function
 const mealPlanSchema = {
   type: Type.OBJECT,
   properties: {
@@ -30,118 +29,89 @@ const mealPlanSchema = {
 };
 
 /**
- * وظيفة التحليل: تعتمد الآن بشكل أساسي على المفتاح المباشر لتجاوز قيود Vercel
+ * وظيفة تحليل الوجبات: تستدعي Google Gemini مباشرة من المتصفح
+ * لتجنب قيود Vercel (10 ثوانٍ) تماماً.
  */
 export const analyzeMealImage = async (base64Image: string, profile: UserHealthProfile, lang: string = 'en'): Promise<MealAnalysisResult | null> => {
-  const isAr = lang === 'ar';
-  
-  // 1. استخدام المفتاح المباشر (الحل المضمون)
-  if (process.env.API_KEY) {
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const base64Data = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
-      
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: {
-          parts: [
-            { inlineData: { data: base64Data, mimeType: 'image/jpeg' } },
-            { text: `Analyze meal for ${profile?.persona || 'General'}. JSON only. Lang: ${isAr ? 'Arabic' : 'English'}.` }
-          ]
-        },
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: mealAnalysisSchema,
-          temperature: 0.1,
-          thinkingConfig: { thinkingBudget: 0 }
-        }
-      });
-      
-      if (!response.text) throw new Error("EMPTY_RESPONSE");
-      const data = JSON.parse(response.text.trim());
-      return { ...data, imageUrl: base64Image, timestamp: new Date().toLocaleString() };
-    } catch (e: any) {
-      console.error("Direct Path Failed:", e);
-      // إذا كان الخطأ متعلق بالمفتاح، نعيد المحاولة عبر الخادم
-      if (e.message?.includes("entity was not found")) {
-        // نطلب إعادة ربط المفتاح من الواجهة
-        throw new Error("KEY_REBIND_NEEDED");
-      }
-    }
-  }
+  // الحصول على المفتاح فوراً من البيئة المحقونة
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) throw new Error("API_KEY_MISSING");
 
-  // 2. المحاولة الأخيرة عبر الخادم (قد تفشل بسبب الـ Timeout)
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 9500); // إحباط مبكر لتجنب خطأ Vercel القبيح
-
-    const response = await fetch('/api/analyze-meal', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image: base64Image, profile, lang }),
-      signal: controller.signal
+    const ai = new GoogleGenAI({ apiKey });
+    const base64Data = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
+    
+    // استخدام gemini-3-flash-preview لقدراته الفائقة في تحليل الصور والنصوص معاً
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: {
+        parts: [
+          { inlineData: { data: base64Data, mimeType: 'image/jpeg' } },
+          { text: `Bio-Scan Protocol. Persona: ${profile?.persona || 'General'}. Focus: Ingredients, Health Score, Macros. Output: JSON. Language: ${lang === 'ar' ? 'Arabic' : 'English'}.` }
+        ]
+      },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: mealAnalysisSchema,
+        temperature: 0.1,
+        thinkingConfig: { thinkingBudget: 0 } // لضمان أسرع استجابة
+      }
     });
-
-    clearTimeout(timeoutId);
-    if (!response.ok) throw new Error("SCAN_TIMEOUT");
-    const data = await response.json();
+    
+    if (!response.text) throw new Error("EMPTY_RESPONSE");
+    const data = JSON.parse(response.text.trim());
     return { ...data, imageUrl: base64Image, timestamp: new Date().toLocaleString() };
-  } catch (err: any) {
-    throw new Error(err.name === 'AbortError' ? "SCAN_TIMEOUT" : "CONNECTION_ERROR");
+  } catch (e: any) {
+    console.error("Browser SDK Analysis Failed:", e);
+    // إذا كان الخطأ متعلق بصلاحية المفتاح أو الحساب المدفوع
+    if (e.message?.includes("entity was not found") || e.message?.includes("API key")) {
+      throw new Error("KEY_REBIND_REQUIRED");
+    }
+    throw new Error("SDK_PROCESSING_ERROR");
   }
 };
 
-// Fix: Export generateMealPlan to resolve missing member error
-export const generateMealPlan = async (request: MealPlanRequest, lang: string, feedback: FeedbackEntry[]): Promise<DayPlan | null> => {
-  const isAr = lang === 'ar';
+/**
+ * توليد خطة الوجبات عبر SDK المتصفح
+ */
+export const generateMealPlan = async (request: MealPlanRequest, lang: string, feedback: FeedbackEntry[] = []): Promise<DayPlan | null> => {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) throw new Error("API_KEY_MISSING");
+
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Generate a short and concise meal plan for a ${request.persona || 'General'} user with the goal: ${request.goal}. 
-      Diet type: ${request.diet}. Language: ${isAr ? 'Arabic' : 'English'}. 
-      Consider this feedback history: ${JSON.stringify(feedback.slice(-5))}. JSON only.`,
+      contents: `Generate metabolic meal plan for ${request.goal} target. Profile: ${request.persona}. Lang: ${lang === 'ar' ? 'Arabic' : 'English'}. Feedback: ${JSON.stringify(feedback.slice(-3))}.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: mealPlanSchema,
-        temperature: 0.2,
-        thinkingConfig: { thinkingBudget: 0 }
+        temperature: 0.2
       }
     });
-
-    const text = response.text;
-    if (!text) return null;
-    return JSON.parse(text.trim());
-  } catch (error) {
-    console.error("Meal Plan Generation Error:", error);
+    return JSON.parse(response.text || '{}');
+  } catch (e) {
+    console.error("Browser SDK Planning Failed:", e);
     return null;
   }
 };
 
-// Fix: Export generateMascot to resolve missing member error
 export const generateMascot = async (prompt: string): Promise<string | null> => {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) return null;
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
-      contents: {
-        parts: [{ text: `High-quality, professional, minimalist mascot icon for: ${prompt}. Vector style, sharp edges, isolated on a clean white background.` }]
-      },
-      config: {
-        imageConfig: { aspectRatio: "1:1" }
-      }
+      contents: { parts: [{ text: `Clinical-grade minimalist mascot icon for: ${prompt}. Pure white background, high contrast.` }] },
+      config: { imageConfig: { aspectRatio: "1:1" } }
     });
-
-    if (response.candidates?.[0]?.content?.parts) {
-      for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData) {
-          return `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`;
-        }
+    const parts = response.candidates?.[0]?.content?.parts;
+    if (parts) {
+      for (const p of parts) {
+        if (p.inlineData) return `data:image/png;base64,${p.inlineData.data}`;
       }
     }
     return null;
-  } catch (error) {
-    console.error("Mascot Generation Error:", error);
-    return null;
-  }
+  } catch (error) { return null; }
 };
