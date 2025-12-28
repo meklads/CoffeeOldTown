@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { RotateCcw, Baby, HeartPulse, Zap, Camera, Utensils, Share2, Activity, AlertCircle, UploadCloud, Check, Copy, Key, Loader2, ShieldAlert, Terminal, Settings, ArrowRight, RefreshCw } from 'lucide-react';
+import { RotateCcw, Baby, HeartPulse, Zap, Camera, Utensils, Share2, Activity, AlertCircle, UploadCloud, Check, Copy, Key, Loader2, ShieldAlert, Terminal, Settings, ArrowRight, RefreshCw, Layers } from 'lucide-react';
 import { SectionId, BioPersona } from '../types.ts';
 import { useApp } from '../context/AppContext.tsx';
 import { analyzeMealImage } from '../services/geminiService.ts';
@@ -16,48 +16,17 @@ const Hero: React.FC = () => {
   const [progress, setProgress] = useState(0);
   const [loadingStep, setLoadingStep] = useState('');
   const [errorMsg, setErrorMsg] = useState<{title: string, detail: string, type: 'quota' | 'config' | 'general'} | null>(null);
+  const [retryAttempt, setRetryAttempt] = useState(0);
   
   const isAr = language === 'ar';
   const fileInputRef = useRef<HTMLInputElement>(null);
   const progressIntervalRef = useRef<number | null>(null);
 
   const personaConfigs: Record<BioPersona, { label: string, icon: React.ReactNode, slogan: string, color: string, border: string, accent: string, bg: string }> = {
-    GENERAL: { 
-        label: isAr ? 'بروتوكول عام' : 'GENERAL PROTOCOL', 
-        icon: <Utensils size={20} />, 
-        slogan: isAr ? 'تغذية متوازنة' : 'Balanced Nutrition',
-        color: 'bg-[#C2A36B]', 
-        accent: 'text-[#C2A36B]', 
-        border: 'border-[#C2A36B]',
-        bg: 'bg-[#C2A36B]/10'
-    },
-    ATHLETE: { 
-        label: isAr ? 'بروتوكول الرياضي' : 'ATHLETE MODE', 
-        icon: <Zap size={20} />, 
-        slogan: isAr ? 'أداء واستشفاء' : 'Power & Recovery',
-        color: 'bg-orange-500', 
-        accent: 'text-orange-500', 
-        border: 'border-orange-500',
-        bg: 'bg-orange-500/10'
-    },
-    DIABETIC: { 
-        label: isAr ? 'إدارة السكري' : 'DIABETIC CARE', 
-        icon: <HeartPulse size={20} />, 
-        slogan: isAr ? 'توازن الجلوكوز' : 'Glucose Balance',
-        color: 'bg-blue-500', 
-        accent: 'text-blue-500', 
-        border: 'border-blue-500',
-        bg: 'bg-blue-500/10'
-    },
-    PREGNANCY: { 
-        label: isAr ? 'رعاية الحامل' : 'PREGNANCY SAFE', 
-        icon: <Baby size={20} />, 
-        slogan: isAr ? 'نمو وصحة' : 'Growth & Vitality',
-        color: 'bg-pink-500', 
-        accent: 'text-pink-500', 
-        border: 'border-pink-500',
-        bg: 'bg-pink-500/10'
-    }
+    GENERAL: { label: isAr ? 'بروتوكول عام' : 'GENERAL PROTOCOL', icon: <Utensils size={20} />, slogan: isAr ? 'تغذية متوازنة' : 'Balanced Nutrition', color: 'bg-[#C2A36B]', accent: 'text-[#C2A36B]', border: 'border-[#C2A36B]', bg: 'bg-[#C2A36B]/10' },
+    ATHLETE: { label: isAr ? 'بروتوكول الرياضي' : 'ATHLETE MODE', icon: <Zap size={20} />, slogan: isAr ? 'أداء واستشفاء' : 'Power & Recovery', color: 'bg-orange-500', accent: 'text-orange-500', border: 'border-orange-500', bg: 'bg-orange-500/10' },
+    DIABETIC: { label: isAr ? 'إدارة السكري' : 'DIABETIC CARE', icon: <HeartPulse size={20} />, slogan: isAr ? 'توازن الجلوكوز' : 'Glucose Balance', color: 'bg-blue-500', accent: 'text-blue-500', border: 'border-blue-500', bg: 'bg-blue-500/10' },
+    PREGNANCY: { label: isAr ? 'رعاية الحامل' : 'PREGNANCY SAFE', icon: <Baby size={20} />, slogan: isAr ? 'نمو وصحة' : 'Growth & Vitality', color: 'bg-pink-500', accent: 'text-pink-500', border: 'border-pink-500', bg: 'bg-pink-500/10' }
   };
 
   const currentConf = personaConfigs[currentPersona];
@@ -68,7 +37,7 @@ const Hero: React.FC = () => {
       img.src = base64;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_SIZE = 600; // تقليل الحجم أكثر لضمان السرعة القصوى
+        const MAX_SIZE = 500; // تصغير أكثر لضمان السرعة
         let width = img.width;
         let height = img.height;
         if (width > height) {
@@ -80,7 +49,7 @@ const Hero: React.FC = () => {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.5)); // جودة أقل لسرعة نقل أعلى
+        resolve(canvas.toDataURL('image/jpeg', 0.4)); 
       };
     });
   };
@@ -103,37 +72,36 @@ const Hero: React.FC = () => {
     setImage(null);
     setStatus('idle');
     setProgress(0);
+    setRetryAttempt(0);
     setLastAnalysisResult(null);
     setErrorMsg(null);
     if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleAnalyze = async (retryCount = 0) => {
-    if (!image || status === 'loading') return;
+  const handleAnalyze = async (attempt = 0) => {
+    if (!image || status === 'loading' && attempt === 0) return;
+    
     setStatus('loading');
-    setProgress(0);
+    setRetryAttempt(attempt);
+    if (attempt === 0) setProgress(0);
     setErrorMsg(null);
     
     const steps = isAr 
-      ? ['ضبط المستشعرات...', 'تشفير العينة...', 'تحليل البروتوكول...', 'توليد النتائج...'] 
-      : ['Syncing Sensors...', 'Encoding Specimen...', 'Analyzing Protocol...', 'Generating Results...'];
+      ? ['تحميل البروتوكول...', 'مزامنة العصبية...', 'تحليل المكونات...', 'توليد التقرير...'] 
+      : ['Loading Protocol...', 'Syncing Neural...', 'Analyzing Specs...', 'Generating Lab Report...'];
     
-    let currentStepIdx = 0;
-    setLoadingStep(steps[0]);
+    setLoadingStep(steps[Math.min(attempt, steps.length - 1)]);
 
-    progressIntervalRef.current = window.setInterval(() => {
-      setProgress(prev => {
-        const next = prev + (retryCount > 0 ? 2 : 1);
-        if (next >= 95) return 95;
-        const stepIdx = Math.floor((next / 100) * steps.length);
-        if (stepIdx !== currentStepIdx && stepIdx < steps.length) {
-          currentStepIdx = stepIdx;
-          setLoadingStep(steps[stepIdx]);
-        }
-        return next;
-      });
-    }, 100);
+    if (!progressIntervalRef.current || attempt === 0) {
+      progressIntervalRef.current = window.setInterval(() => {
+        setProgress(prev => {
+          const next = prev + 1;
+          if (next >= 98) return 98;
+          return next;
+        });
+      }, 60);
+    }
 
     try {
       const result = await analyzeMealImage(image, {
@@ -152,26 +120,26 @@ const Hero: React.FC = () => {
         setStatus('success');
       }
     } catch (err: any) {
-      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-      
-      // محاولة إعادة المحاولة تلقائياً مرة واحدة قبل إظهار الخطأ
-      if (retryCount < 1 && err.message !== "QUOTA_EXCEEDED") {
-         console.log("Retrying analysis...");
-         setTimeout(() => handleAnalyze(retryCount + 1), 1000);
-         return;
+      // نظام إعادة المحاولة الذكي عند وجود خطأ 429 أو خطأ معالجة
+      if (attempt < 2 && (err.message === "QUOTA_EXCEEDED" || err.message.includes("SERVER_ERROR") || err.message.includes("fetch"))) {
+        console.warn(`Attempt ${attempt + 1} failed, retrying in 2s...`);
+        setLoadingStep(isAr ? 'إعادة محاولة الاتصال...' : 'Re-establishing Link...');
+        setTimeout(() => handleAnalyze(attempt + 1), 2000);
+        return;
       }
 
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       setStatus('error');
       const isQuota = err.message === "QUOTA_EXCEEDED";
-      const isConfig = err.message.includes("CONFIG_ERROR") || err.message.includes("API_KEY");
+      const isConfig = err.message.includes("CONFIG_ERROR");
 
       setErrorMsg({
-        title: isConfig ? (isAr ? "نظام غير مهيأ" : "System Not Configured") : isQuota ? (isAr ? "ضغط على الشبكة" : "Network Load") : (isAr ? "انقطاع الاتصال" : "Neural Link Timeout"),
+        title: isConfig ? (isAr ? "نظام غير مهيأ" : "System Offline") : isQuota ? (isAr ? "ضغط على الشبكة" : "Network Load") : (isAr ? "فشل الاتصال" : "Link Failure"),
         detail: isConfig 
-          ? (isAr ? "يرجى إضافة API_KEY في إعدادات Vercel." : "Missing API_KEY in environment.")
+          ? (isAr ? "مفتاح API مفقود. يرجى مراجعة الإعدادات." : "API Key missing in environment.")
           : isQuota 
-            ? (isAr ? "جوجل تطلب الانتظار قليلاً (60 ثانية). يرجى المحاولة لاحقاً." : "Google API quota reached. Wait 60s.")
-            : (isAr ? "استغرق التحليل وقتاً طويلاً. حاول اختيار 'بروتوكول عام' أو تصغير الصورة." : "The analysis took too long for Vercel Hobby limits."),
+            ? (isAr ? "وصلت للحد المجاني. انتظر دقيقة أو استخدم مفتاحاً مدفوعاً." : "Google API limit reached. Try again in 60s.")
+            : (isAr ? "الخادم استغرق وقتاً طويلاً. جرب صورة أصغر أو بروتوكولاً عاماً." : "Vercel timeout. Try a smaller image or General mode."),
         type: isConfig ? 'config' : isQuota ? 'quota' : 'general'
       });
     }
@@ -179,8 +147,6 @@ const Hero: React.FC = () => {
 
   return (
     <section id={SectionId.PHASE_01_SCAN} className="relative min-h-screen pt-32 pb-20 overflow-hidden bg-brand-light dark:bg-brand-dark transition-colors duration-1000">
-      <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-brand-primary/5 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/2" />
-      
       <div className="max-w-7xl mx-auto px-6 relative z-10 h-full">
         <div className="grid lg:grid-cols-12 gap-12 lg:gap-20 items-center">
           
@@ -188,14 +154,14 @@ const Hero: React.FC = () => {
             <div className="space-y-6">
               <div className="inline-flex items-center gap-3 px-4 py-2 bg-brand-dark dark:bg-white/5 text-brand-primary rounded-full shadow-lg border border-white/5">
                 <ShieldAlert size={14} />
-                <span className="text-[9px] font-black uppercase tracking-[0.4em]">{isAr ? 'نظام تشخيص النخبة' : 'ELITE DIAGNOSTIC SYSTEM'}</span>
+                <span className="text-[9px] font-black uppercase tracking-[0.4em]">{isAr ? 'نظام النخبة لتحليل الأيض' : 'ELITE METABOLIC ANALYZER'}</span>
               </div>
               <h1 className="text-5xl md:text-7xl font-serif font-bold text-brand-dark dark:text-white tracking-tighter leading-[0.9]">
                 Metabolic <br /> 
                 <span className={`${currentConf.accent} italic font-normal transition-colors duration-700`}>{isAr ? 'التشخيص الذكي.' : 'Diagnostics.'}</span>
               </h1>
               <p className="text-brand-dark/50 dark:text-white/40 text-lg font-medium italic leading-relaxed max-w-sm">
-                {isAr ? 'قم بمعايرة بروتوكولك الحيوي قبل بدء عملية المسح.' : 'Calibrate your biometric protocol before initiating the scan.'}
+                {isAr ? 'اختر البروتوكول لتوجيه الذكاء الاصطناعي نحو احتياجاتك الحيوية.' : 'Select a protocol to calibrate AI towards your specific bio-needs.'}
               </p>
             </div>
 
@@ -207,8 +173,8 @@ const Hero: React.FC = () => {
                   <button
                     key={key}
                     onClick={() => {
-                        setCurrentPersona(key);
-                        if (status === 'error') setStatus('idle'); // تنظيف الخطأ عند تغيير البروتوكول
+                      setCurrentPersona(key);
+                      if (status === 'error') setStatus('idle');
                     }}
                     className={`group relative p-6 rounded-[35px] border transition-all duration-500 text-left overflow-hidden h-[120px] flex flex-col justify-between
                       ${isActive ? `${conf.color} ${conf.border} text-white shadow-xl scale-[1.02]` : 'bg-white dark:bg-white/5 border-brand-dark/5 dark:border-white/5 text-brand-dark dark:text-white/40 hover:bg-brand-primary/5 hover:border-brand-primary/20'}`}
@@ -230,8 +196,8 @@ const Hero: React.FC = () => {
             
             <div className="pt-6 hidden lg:block">
                <div className="flex items-center gap-4 text-brand-dark/20 dark:text-white/10 uppercase font-black text-[9px] tracking-[0.4em]">
-                  <Settings size={14} className="animate-spin-slow" />
-                  <span>{isAr ? 'المعلمات تتكيف آلياً مع اختيارك' : 'PARAMETERS ADAPT TO YOUR CHOICE'}</span>
+                  <Layers size={14} className="animate-pulse" />
+                  <span>{isAr ? 'الذكاء الاصطناعي مهيأ للتحليل التخصصي' : 'AI OPTIMIZED FOR SPECIALIZED ANALYSIS'}</span>
                </div>
             </div>
           </div>
@@ -244,7 +210,7 @@ const Hero: React.FC = () => {
                       <img src={image} className="w-full h-full object-cover transition-all duration-700 group-hover:scale-105" alt="Meal" />
                       
                       {status === 'loading' && (
-                        <div className="absolute inset-0 bg-brand-dark/90 backdrop-blur-xl flex flex-col items-center justify-center p-12 text-center animate-fade-in z-50">
+                        <div className="absolute inset-0 bg-brand-dark/95 backdrop-blur-xl flex flex-col items-center justify-center p-12 text-center animate-fade-in z-50">
                            <div className="relative mb-10">
                               <div className={`w-36 h-36 rounded-full border border-white/5 border-t-brand-primary animate-spin ${currentConf.accent}`} />
                               <div className="absolute inset-0 flex items-center justify-center">
@@ -253,16 +219,16 @@ const Hero: React.FC = () => {
                            </div>
                            <div className="space-y-4">
                               <h3 className="text-2xl font-serif font-bold text-white tracking-tight">{loadingStep}</h3>
+                              {retryAttempt > 0 && <span className="text-brand-primary text-[10px] font-black uppercase animate-pulse">{isAr ? `المحاولة ${retryAttempt + 1}` : `RETRY ATTEMPT ${retryAttempt + 1}`}</span>}
                               <div className="w-64 h-1.5 bg-white/10 rounded-full overflow-hidden">
                                  <div className={`h-full transition-all duration-300 ${currentConf.color}`} style={{ width: `${progress}%` }} />
                               </div>
-                              <p className="text-[10px] text-white/40 uppercase tracking-[0.5em]">{progress}% Processed</p>
                            </div>
                         </div>
                       )}
 
                       {status === 'success' && lastAnalysisResult && (
-                        <div className="absolute inset-x-6 bottom-6 bg-white/95 dark:bg-brand-dark/95 backdrop-blur-xl rounded-[45px] p-8 border border-white/20 shadow-glow animate-fade-in-up z-50">
+                        <div className="absolute inset-x-6 bottom-6 bg-white/95 dark:bg-brand-dark/95 backdrop-blur-2xl rounded-[45px] p-8 border border-white/20 shadow-glow animate-fade-in-up z-50">
                            <div className="flex justify-between items-start mb-6">
                               <div className="space-y-1">
                                  <span className={`text-[8px] font-black uppercase tracking-[0.4em] ${currentConf.accent}`}>{isAr ? 'تقرير الأيض' : 'METABOLIC_REPORT'}</span>

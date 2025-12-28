@@ -2,10 +2,10 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
 export const config = {
-  maxDuration: 60,
+  maxDuration: 10, // Vercel Hobby limit
   api: {
     bodyParser: {
-      sizeLimit: '4mb',
+      sizeLimit: '2mb', // تقليل حجم البيانات المرسلة
     },
   },
 };
@@ -60,31 +60,34 @@ export default async function handler(req: any, res: any) {
     const base64Data = image.includes(',') ? image.split(',')[1] : image;
     const persona = profile?.persona || 'GENERAL';
 
-    // طلب تحليل فائق السرعة لتجنب Timeout
+    // استخدام gemini-3-flash-preview ولكن مع إعدادات تجعله "فائق السرعة"
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview', 
       contents: {
         parts: [
           { inlineData: { data: base64Data, mimeType: 'image/jpeg' } },
-          { text: `FAST ANALYSIS: Meal for ${persona} user. If ATHLETE focus on protein/recovery. If DIABETIC focus on carbs/glycemic. If PREGNANCY focus on safety/folic. Output JSON in ${lang === 'ar' ? 'Arabic' : 'English'}.` }
+          { text: `ULTRA-FAST MISSION: Analyze this meal for a ${persona} protocol. 
+            Focus: ${persona === 'ATHLETE' ? 'Protein/Recovery' : persona === 'DIABETIC' ? 'Carbs/Sugar' : persona === 'PREGNANCY' ? 'Safety/Folic' : 'Balance'}. 
+            Be extremely concise. Use ${lang === 'ar' ? 'Arabic' : 'English'}.` }
         ]
       },
       config: { 
         responseMimeType: "application/json", 
         responseSchema: mealAnalysisSchema,
-        temperature: 0.1, // تقليل العشوائية لسرعة الرد
-        thinkingConfig: { thinkingBudget: 0 } 
+        temperature: 0.1, // لزيادة سرعة التوليد
+        topP: 0.8,
+        thinkingConfig: { thinkingBudget: 0 } // إيقاف التفكير لضمان عدم تجاوز الـ 10 ثوانٍ
       }
     });
 
-    const resultText = response.text;
-    return res.status(200).json(JSON.parse(resultText.trim()));
+    return res.status(200).json(JSON.parse(response.text.trim()));
   } catch (error: any) {
-    console.error("Vercel API Error:", error);
+    console.error("Critical API Failure:", error);
     const status = error.status || 500;
+    // إرسال نوع الخطأ بوضوح للواجهة لتتمكن من إعادة المحاولة
     return res.status(status).json({ 
-      error: status === 429 ? 'QUOTA_EXCEEDED' : 'PROCESSING_ERROR', 
-      details: error.message 
+      error: status === 429 ? 'QUOTA_EXCEEDED' : 'PROCESSING_ERROR',
+      message: error.message 
     });
   }
 }
