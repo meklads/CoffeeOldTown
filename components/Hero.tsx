@@ -1,12 +1,11 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { RotateCcw, Baby, HeartPulse, Zap, Camera, Utensils, Share2, Activity, AlertCircle, UploadCloud, Check, Copy, Key, Loader2, ShieldAlert, Terminal, Settings, ArrowRight } from 'lucide-react';
+import { RotateCcw, Baby, HeartPulse, Zap, Camera, Utensils, Share2, Activity, AlertCircle, UploadCloud, Check, Copy, Key, Loader2, ShieldAlert, Terminal, Settings, ArrowRight, RefreshCw } from 'lucide-react';
 import { SectionId, BioPersona } from '../types.ts';
 import { useApp } from '../context/AppContext.tsx';
 import { analyzeMealImage } from '../services/geminiService.ts';
 
 const Hero: React.FC = () => {
-  // Destructure setView from useApp to fix the "Cannot find name 'setView'" error
   const { incrementScans, setLastAnalysisResult, lastAnalysisResult, currentPersona, setCurrentPersona, language, setView } = useApp();
   
   const [image, setImage] = useState<string | null>(lastAnalysisResult?.imageUrl || null);
@@ -17,13 +16,11 @@ const Hero: React.FC = () => {
   const [progress, setProgress] = useState(0);
   const [loadingStep, setLoadingStep] = useState('');
   const [errorMsg, setErrorMsg] = useState<{title: string, detail: string, type: 'quota' | 'config' | 'general'} | null>(null);
-  const [shareStatus, setShareStatus] = useState<'idle' | 'shared' | 'error'>('idle');
   
   const isAr = language === 'ar';
   const fileInputRef = useRef<HTMLInputElement>(null);
   const progressIntervalRef = useRef<number | null>(null);
 
-  // إعدادات البروتوكولات الأربعة
   const personaConfigs: Record<BioPersona, { label: string, icon: React.ReactNode, slogan: string, color: string, border: string, accent: string, bg: string }> = {
     GENERAL: { 
         label: isAr ? 'بروتوكول عام' : 'GENERAL PROTOCOL', 
@@ -71,7 +68,7 @@ const Hero: React.FC = () => {
       img.src = base64;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_SIZE = 800;
+        const MAX_SIZE = 600; // تقليل الحجم أكثر لضمان السرعة القصوى
         let width = img.width;
         let height = img.height;
         if (width > height) {
@@ -83,7 +80,7 @@ const Hero: React.FC = () => {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.6));
+        resolve(canvas.toDataURL('image/jpeg', 0.5)); // جودة أقل لسرعة نقل أعلى
       };
     });
   };
@@ -112,23 +109,23 @@ const Hero: React.FC = () => {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleAnalyze = async () => {
+  const handleAnalyze = async (retryCount = 0) => {
     if (!image || status === 'loading') return;
     setStatus('loading');
     setProgress(0);
     setErrorMsg(null);
     
     const steps = isAr 
-      ? ['تحسين الصورة...', 'تشفير البيانات...', 'تحليل بصمة الأيض...', 'توليد التقرير...'] 
-      : ['Optimizing Image...', 'Encoding Data...', 'Metabolic Analysis...', 'Generating Report...'];
+      ? ['ضبط المستشعرات...', 'تشفير العينة...', 'تحليل البروتوكول...', 'توليد النتائج...'] 
+      : ['Syncing Sensors...', 'Encoding Specimen...', 'Analyzing Protocol...', 'Generating Results...'];
     
     let currentStepIdx = 0;
     setLoadingStep(steps[0]);
 
     progressIntervalRef.current = window.setInterval(() => {
       setProgress(prev => {
-        const next = prev + Math.floor(Math.random() * 10) + 1;
-        if (next >= 98) return 98;
+        const next = prev + (retryCount > 0 ? 2 : 1);
+        if (next >= 95) return 95;
         const stepIdx = Math.floor((next / 100) * steps.length);
         if (stepIdx !== currentStepIdx && stepIdx < steps.length) {
           currentStepIdx = stepIdx;
@@ -136,7 +133,7 @@ const Hero: React.FC = () => {
         }
         return next;
       });
-    }, 80);
+    }, 100);
 
     try {
       const result = await analyzeMealImage(image, {
@@ -156,18 +153,25 @@ const Hero: React.FC = () => {
       }
     } catch (err: any) {
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-      setStatus('error');
       
+      // محاولة إعادة المحاولة تلقائياً مرة واحدة قبل إظهار الخطأ
+      if (retryCount < 1 && err.message !== "QUOTA_EXCEEDED") {
+         console.log("Retrying analysis...");
+         setTimeout(() => handleAnalyze(retryCount + 1), 1000);
+         return;
+      }
+
+      setStatus('error');
       const isQuota = err.message === "QUOTA_EXCEEDED";
       const isConfig = err.message.includes("CONFIG_ERROR") || err.message.includes("API_KEY");
 
       setErrorMsg({
-        title: isConfig ? (isAr ? "خطأ في الإعدادات" : "Configuration Error") : isQuota ? (isAr ? "تحجيم الأداء" : "Throttling") : (isAr ? "خطأ في الاتصال" : "Connection Error"),
+        title: isConfig ? (isAr ? "نظام غير مهيأ" : "System Not Configured") : isQuota ? (isAr ? "ضغط على الشبكة" : "Network Load") : (isAr ? "انقطاع الاتصال" : "Neural Link Timeout"),
         detail: isConfig 
-          ? (isAr ? "مفتاح API مفقود في Vercel. يرجى إضافته في الإعدادات وإعادة النشر." : "API_KEY is missing from Vercel variables. Add it and redeploy.")
+          ? (isAr ? "يرجى إضافة API_KEY في إعدادات Vercel." : "Missing API_KEY in environment.")
           : isQuota 
-            ? (isAr ? "تم الوصول للحد الأقصى للطلبات. جرب مجدداً بعد دقيقة." : "Free tier limit reached. Please wait 60 seconds.")
-            : (isAr ? "السيرفر استغرق وقتاً طويلاً أو الصورة كبيرة جداً." : "Server timeout or payload too large for Vercel Hobby."),
+            ? (isAr ? "جوجل تطلب الانتظار قليلاً (60 ثانية). يرجى المحاولة لاحقاً." : "Google API quota reached. Wait 60s.")
+            : (isAr ? "استغرق التحليل وقتاً طويلاً. حاول اختيار 'بروتوكول عام' أو تصغير الصورة." : "The analysis took too long for Vercel Hobby limits."),
         type: isConfig ? 'config' : isQuota ? 'quota' : 'general'
       });
     }
@@ -180,23 +184,21 @@ const Hero: React.FC = () => {
       <div className="max-w-7xl mx-auto px-6 relative z-10 h-full">
         <div className="grid lg:grid-cols-12 gap-12 lg:gap-20 items-center">
           
-          {/* Column 1: Branding & Persona Selection */}
           <div className="lg:col-span-5 space-y-10 animate-fade-in">
             <div className="space-y-6">
               <div className="inline-flex items-center gap-3 px-4 py-2 bg-brand-dark dark:bg-white/5 text-brand-primary rounded-full shadow-lg border border-white/5">
                 <ShieldAlert size={14} />
-                <span className="text-[9px] font-black uppercase tracking-[0.4em]">{isAr ? 'نظام تحليل جزيئي معتمد' : 'MOLECULAR ANALYSIS VERIFIED'}</span>
+                <span className="text-[9px] font-black uppercase tracking-[0.4em]">{isAr ? 'نظام تشخيص النخبة' : 'ELITE DIAGNOSTIC SYSTEM'}</span>
               </div>
               <h1 className="text-5xl md:text-7xl font-serif font-bold text-brand-dark dark:text-white tracking-tighter leading-[0.9]">
                 Metabolic <br /> 
                 <span className={`${currentConf.accent} italic font-normal transition-colors duration-700`}>{isAr ? 'التشخيص الذكي.' : 'Diagnostics.'}</span>
               </h1>
               <p className="text-brand-dark/50 dark:text-white/40 text-lg font-medium italic leading-relaxed max-w-sm">
-                {isAr ? 'اختر البروتوكول المناسب لحالتك الحيوية قبل بدء الفحص.' : 'Calibrate your biometric protocol before initiating the scan.'}
+                {isAr ? 'قم بمعايرة بروتوكولك الحيوي قبل بدء عملية المسح.' : 'Calibrate your biometric protocol before initiating the scan.'}
               </p>
             </div>
 
-            {/* Persona Selection Grid - THE FOUR BUTTONS REINSTATED */}
             <div className="grid grid-cols-2 gap-4">
               {(Object.keys(personaConfigs) as BioPersona[]).map((key) => {
                 const conf = personaConfigs[key];
@@ -204,7 +206,10 @@ const Hero: React.FC = () => {
                 return (
                   <button
                     key={key}
-                    onClick={() => setCurrentPersona(key)}
+                    onClick={() => {
+                        setCurrentPersona(key);
+                        if (status === 'error') setStatus('idle'); // تنظيف الخطأ عند تغيير البروتوكول
+                    }}
                     className={`group relative p-6 rounded-[35px] border transition-all duration-500 text-left overflow-hidden h-[120px] flex flex-col justify-between
                       ${isActive ? `${conf.color} ${conf.border} text-white shadow-xl scale-[1.02]` : 'bg-white dark:bg-white/5 border-brand-dark/5 dark:border-white/5 text-brand-dark dark:text-white/40 hover:bg-brand-primary/5 hover:border-brand-primary/20'}`}
                   >
@@ -226,12 +231,11 @@ const Hero: React.FC = () => {
             <div className="pt-6 hidden lg:block">
                <div className="flex items-center gap-4 text-brand-dark/20 dark:text-white/10 uppercase font-black text-[9px] tracking-[0.4em]">
                   <Settings size={14} className="animate-spin-slow" />
-                  <span>{isAr ? 'تعديل المعلمات يتم آلياً بناءً على اختيارك' : 'PARAMETERS CALIBRATED AUTOMATICALLY'}</span>
+                  <span>{isAr ? 'المعلمات تتكيف آلياً مع اختيارك' : 'PARAMETERS ADAPT TO YOUR CHOICE'}</span>
                </div>
             </div>
           </div>
 
-          {/* Column 2: The Scanner Unit */}
           <div className="lg:col-span-7 flex flex-col items-center">
              <div className={`relative w-full max-w-[500px] aspect-[4/5] bg-white dark:bg-zinc-900 rounded-[60px] lg:rounded-[80px] border-2 transition-all duration-700 ${currentConf.border} shadow-[0_60px_100px_-20px_rgba(0,0,0,0.3)] overflow-hidden group`}>
                 
@@ -294,20 +298,25 @@ const Hero: React.FC = () => {
                       )}
 
                       {status === 'error' && errorMsg && (
-                        <div className="absolute inset-0 bg-red-500/95 backdrop-blur-xl flex flex-col items-center justify-center p-12 text-center text-white animate-fade-in z-50">
+                        <div className="absolute inset-0 bg-red-600/95 backdrop-blur-xl flex flex-col items-center justify-center p-12 text-center text-white animate-fade-in z-50">
                            <AlertCircle size={64} className="mb-6 animate-bounce" />
-                           <h3 className="text-3xl font-serif font-bold mb-4">{errorMsg.title}</h3>
-                           <p className="text-lg font-medium italic opacity-80 mb-8 max-w-xs">{errorMsg.detail}</p>
-                           <button onClick={handleReset} className="bg-white text-red-500 px-10 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-brand-dark hover:text-white transition-all shadow-2xl">
-                              {isAr ? 'إعادة التشغيل' : 'REBOOT SYSTEM'}
-                           </button>
+                           <h3 className="text-2xl font-serif font-bold mb-4">{errorMsg.title}</h3>
+                           <p className="text-base font-medium italic opacity-80 mb-8 max-w-xs">{errorMsg.detail}</p>
+                           <div className="flex flex-col gap-3 w-full max-w-[240px]">
+                              <button onClick={() => handleAnalyze(0)} className="bg-white text-red-600 px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-brand-dark hover:text-white transition-all shadow-2xl flex items-center justify-center gap-2">
+                                 <RefreshCw size={14} /> {isAr ? 'إعادة المحاولة' : 'RETRY LINK'}
+                              </button>
+                              <button onClick={handleReset} className="bg-transparent text-white/60 border border-white/20 px-8 py-3 rounded-2xl font-black text-[9px] uppercase tracking-widest hover:text-white transition-all">
+                                 {isAr ? 'إلغاء الصورة' : 'CANCEL'}
+                              </button>
+                           </div>
                         </div>
                       )}
 
                       {status === 'idle' && (
                          <div className="absolute inset-0 flex items-center justify-center bg-brand-dark/40 group-hover:bg-brand-dark/20 transition-all z-40">
                             <button 
-                              onClick={handleAnalyze}
+                              onClick={() => handleAnalyze(0)}
                               className={`w-28 h-28 rounded-full flex items-center justify-center shadow-glow animate-pulse hover:scale-110 transition-transform ${currentConf.color} text-white`}
                             >
                                <Zap size={44} fill="currentColor" />
@@ -326,8 +335,8 @@ const Hero: React.FC = () => {
                          </div>
                       </div>
                       <div className="space-y-4">
-                         <h4 className="text-3xl font-serif font-bold text-brand-dark/60 dark:text-white/40 italic">{isAr ? 'وحدة المسح جاهزة' : 'Biometric Input Ready.'}</h4>
-                         <p className="text-[10px] font-black text-brand-dark/20 dark:text-white/10 uppercase tracking-[0.5em]">{isAr ? 'ارفع صورة الوجبة للمختبر' : 'UPLOAD SPECIMEN TO LAB'}</p>
+                         <h4 className="text-3xl font-serif font-bold text-brand-dark/60 dark:text-white/40 italic">{isAr ? 'المختبر جاهز للمسح' : 'Biometric Lab Ready.'}</h4>
+                         <p className="text-[10px] font-black text-brand-dark/20 dark:text-white/10 uppercase tracking-[0.5em]">{isAr ? 'ارفع صورة الوجبة لبدء التشخيص' : 'UPLOAD SPECIMEN TO ANALYZE'}</p>
                       </div>
                       <div className="flex flex-col items-center gap-2">
                         <span className={`text-[8px] font-black uppercase tracking-widest ${currentConf.accent}`}>{isAr ? 'البروتوكول الفعال:' : 'ACTIVE_PROTOCOL:'} {currentConf.label}</span>
