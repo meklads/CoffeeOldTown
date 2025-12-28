@@ -2,12 +2,10 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { UserHealthProfile, MealAnalysisResult, MealPlanRequest, DayPlan, FeedbackEntry } from '../types.ts';
 
-/**
- * الحصول على نسخة من AI مع التأكد من وجود المفتاح
- */
+// إنشاء نسخة الـ AI باستخدام المفتاح الموجود في البيئة فقط
 const getAI = () => {
   const apiKey = process.env.API_KEY;
-  if (!apiKey) throw new Error("KEY_MISSING");
+  if (!apiKey) throw new Error("API_KEY_NOT_CONFIGURED");
   return new GoogleGenAI({ apiKey });
 };
 
@@ -22,7 +20,7 @@ export const analyzeMealImage = async (base64Image: string, profile: UserHealthP
       contents: {
         parts: [
           { inlineData: { data: base64Data, mimeType: 'image/jpeg' } },
-          { text: `SYSTEM: Analyze for ${persona} protocol. Language: ${lang}. Return JSON.` }
+          { text: `Analyze meal for ${persona} protocol. Language: ${lang}. Provide accurate JSON.` }
         ]
       },
       config: {
@@ -42,11 +40,9 @@ export const analyzeMealImage = async (base64Image: string, profile: UserHealthP
       }
     });
 
-    const text = response.text;
-    if (!text) return null;
-    return { ...JSON.parse(text.trim()), imageUrl: base64Image, timestamp: new Date().toLocaleString() };
+    return { ...JSON.parse(response.text.trim()), imageUrl: base64Image, timestamp: new Date().toLocaleString() };
   } catch (error: any) {
-    if (error.message?.includes("not found")) throw new Error("KEY_INVALID");
+    console.error("Analysis failed:", error);
     throw error;
   }
 };
@@ -58,8 +54,8 @@ export const generateMealPlan = async (request: MealPlanRequest, lang: string, f
     const language = lang === 'ar' ? 'Arabic' : 'English';
     
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
-      contents: `Synthesize 1-day ${persona} plan for ${request.goal} in ${language}. JSON format.`,
+      model: 'gemini-3-flash-preview', // تغيير إلى Flash لضمان السرعة والمجانية
+      contents: `Generate 1-day ${persona} meal plan for ${request.goal} in ${language}. JSON format only.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -73,52 +69,29 @@ export const generateMealPlan = async (request: MealPlanRequest, lang: string, f
             advice: { type: Type.STRING }
           },
           required: ["breakfast", "lunch", "dinner", "snack", "totalCalories", "advice"]
-        },
-        thinkingConfig: { thinkingBudget: 2000 }
+        }
       }
     });
 
-    const text = response.text;
-    if (!text) return null;
-    return JSON.parse(text.trim());
+    return JSON.parse(response.text.trim());
   } catch (error: any) {
-    if (error.message?.includes("not found")) throw new Error("KEY_INVALID");
+    console.error("Synthesis failed:", error);
     throw error;
   }
 };
 
-/**
- * توليد تميمة (Mascot) باستخدام موديل توليد الصور
- * Fix: Exporting generateMascot to fix the missing member error in MascotIcon.tsx
- */
 export const generateMascot = async (prompt: string): Promise<string | null> => {
   try {
     const ai = getAI();
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
-      contents: {
-        parts: [{ text: `High-quality, professional, minimalist mascot icon for: ${prompt}. Vector style, sharp edges, isolated on a clean white background.` }]
-      },
-      config: {
-        imageConfig: {
-          aspectRatio: "1:1"
-        }
-      }
+      contents: { parts: [{ text: `Minimalist icon: ${prompt}. White background.` }] }
     });
-
-    // البحث عن جزء الصورة في الرد (Iterate through all parts as per guidelines)
     if (response.candidates?.[0]?.content?.parts) {
       for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData) {
-          const base64EncodeString: string = part.inlineData.data;
-          return `data:${part.inlineData.mimeType};base64,${base64EncodeString}`;
-        }
+        if (part.inlineData) return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
       }
     }
     return null;
-  } catch (error: any) {
-    console.error("Mascot generation failed:", error);
-    if (error.message?.includes("not found")) throw new Error("KEY_INVALID");
-    return null;
-  }
+  } catch (error) { return null; }
 };

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ShieldPlus, Zap, Activity, Sun, CloudSun, Moon, ArrowUpRight, BrainCircuit, AlertCircle, Beaker, Atom, Lock } from 'lucide-react';
+import { ShieldPlus, Zap, Activity, Sun, CloudSun, Moon, ArrowUpRight, BrainCircuit, AlertCircle, Beaker, Atom } from 'lucide-react';
 import { SectionId, DayPlan, BioPersona } from '../types.ts';
 import { generateMealPlan } from '../services/geminiService.ts';
 import { useApp } from '../context/AppContext.tsx';
@@ -11,28 +11,9 @@ const SmartNutritionTool: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<DayPlan | null>(null);
   const [loadingStep, setLoadingStep] = useState('');
-  const [hasKey, setHasKey] = useState(false);
   const chamberRef = useRef<HTMLDivElement>(null);
 
   const isAr = language === 'ar';
-
-  useEffect(() => {
-    const checkKey = async () => {
-      // @ts-ignore
-      const exists = await window.aistudio.hasSelectedApiKey();
-      setHasKey(exists);
-    };
-    checkKey();
-  }, []);
-
-  const handleActivateKey = async () => {
-    try {
-      // @ts-ignore
-      await window.aistudio.openSelectKey();
-      setHasKey(true);
-      setError(null);
-    } catch (e) {}
-  };
 
   const protocols = [
     { id: 'immunity', label: isAr ? 'تعزيز المناعة' : 'Immunity Boost', icon: <ShieldPlus size={22} />, img: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800&q=80', color: 'border-orange-500/50' },
@@ -41,10 +22,6 @@ const SmartNutritionTool: React.FC = () => {
   ];
 
   const handleGenerate = async (goalLabel: string) => {
-    if (!hasKey) {
-      setError('key_required');
-      return;
-    }
     if (loading) return;
     
     setSelectedGoal(goalLabel);
@@ -52,10 +29,10 @@ const SmartNutritionTool: React.FC = () => {
     setError(null);
     setResult(null);
     
-    const steps = isAr ? ['ضبط المعايير...', 'تخليق الوجبات...'] : ['Calibrating...', 'Synthesizing...'];
+    const steps = isAr ? ['ضبط المعايير...', 'تخليق الوجبات الحيوية...'] : ['Adjusting Params...', 'Synthesizing Meals...'];
     let stepIdx = 0;
     setLoadingStep(steps[0]);
-    const stepInt = setInterval(() => { stepIdx = (stepIdx + 1) % steps.length; setLoadingStep(steps[stepIdx]); }, 2000);
+    const stepInt = setInterval(() => { stepIdx = (stepIdx + 1) % steps.length; setLoadingStep(steps[stepIdx]); }, 1500);
 
     try {
       const plan = await generateMealPlan({ goal: goalLabel, diet: 'balanced', persona: currentPersona }, language, feedbackHistory);
@@ -64,8 +41,7 @@ const SmartNutritionTool: React.FC = () => {
         chamberRef.current?.scrollIntoView({ behavior: 'smooth' });
       }
     } catch (err: any) {
-      if (err.message === "KEY_INVALID") { setHasKey(false); setError('key_required'); }
-      else setError(isAr ? 'فشل التخليق الحيوي.' : 'Synthesis failed.');
+      setError(isAr ? 'فشل التخليق الحيوي. يرجى المحاولة لاحقاً.' : 'Synthesis failed. Please try again.');
     } finally {
       clearInterval(stepInt);
       setLoading(false);
@@ -79,7 +55,7 @@ const SmartNutritionTool: React.FC = () => {
            <div className="space-y-4">
               <div className="inline-flex items-center gap-3 px-4 py-1.5 bg-brand-dark dark:bg-white/5 border border-white/10 text-brand-primary rounded-full">
                  <Atom size={12} className="animate-spin-slow" />
-                 <span className="text-[8px] font-black uppercase tracking-[0.5em]">{isAr ? 'وحدة التخليق العصبي' : 'NEURAL_SYNTHESIS_UNIT'}</span>
+                 <span className="text-[8px] font-black uppercase tracking-[0.5em]">{isAr ? 'وحدة التخليق العصبي الفورية' : 'INSTANT_NEURAL_SYNTHESIS'}</span>
               </div>
               <h2 className="text-5xl md:text-8xl font-serif font-bold text-brand-dark dark:text-white leading-none">
                 Bio <span className="text-brand-primary italic font-normal">Synthesis.</span>
@@ -94,7 +70,7 @@ const SmartNutritionTool: React.FC = () => {
                 className={`group relative overflow-hidden rounded-[45px] border-2 h-[150px] flex flex-col justify-end p-8 text-left transition-all
                   ${selectedGoal === item.label ? `${item.color} shadow-xl scale-[1.02]` : 'border-brand-dark/5 dark:border-white/5 grayscale hover:grayscale-0'}`}
               >
-                <div className="absolute inset-0"><img src={item.img} className="w-full h-full object-cover opacity-30" alt={item.label} /><div className="absolute inset-0 bg-brand-dark/60" /></div>
+                <div className="absolute inset-0"><img src={item.img} className="w-full h-full object-cover opacity-20" alt={item.label} /><div className="absolute inset-0 bg-brand-dark/60" /></div>
                 <div className="relative z-10 flex items-center justify-between w-full text-white">
                    <div className="flex items-center gap-4">{item.icon} <h3 className="text-xl font-serif font-bold">{item.label}</h3></div>
                    <ArrowUpRight size={20} />
@@ -109,13 +85,8 @@ const SmartNutritionTool: React.FC = () => {
                   <div className="absolute inset-0 z-50 bg-brand-dark/95 backdrop-blur-xl flex flex-col items-center justify-center p-12 text-center text-white">
                     <BrainCircuit size={40} className="text-brand-primary animate-pulse mb-8" />
                     <h4 className="text-2xl font-serif font-bold italic">{loadingStep}</h4>
+                    <p className="mt-4 text-[10px] tracking-[0.4em] uppercase text-brand-primary opacity-50">Molecular Synthesis in Progress</p>
                   </div>
-                ) : error === 'key_required' ? (
-                   <div className="absolute inset-0 flex flex-col items-center justify-center p-12 text-center space-y-8 animate-fade-in">
-                     <Lock size={40} className="text-brand-primary" />
-                     <h4 className="text-2xl font-serif font-bold text-brand-dark dark:text-white">{isAr ? 'التنشيط مطلوب للتخليق' : 'Activation Required for Synthesis'}</h4>
-                     <button onClick={handleActivateKey} className="px-12 py-5 bg-brand-dark text-white rounded-2xl font-black text-[10px] tracking-widest">ACTIVATE NEURAL LINK</button>
-                   </div>
                 ) : error ? (
                    <div className="absolute inset-0 flex flex-col items-center justify-center p-12 text-center space-y-8">
                      <AlertCircle size={40} className="text-red-500" />
@@ -132,8 +103,8 @@ const SmartNutritionTool: React.FC = () => {
                        {[ {l: 'Breakfast', i: <Sun />, d: result.breakfast}, {l: 'Lunch', i: <CloudSun />, d: result.lunch}, {l: 'Dinner', i: <Moon />, d: result.dinner} ].map((m, i) => (
                          <div key={i} className="p-6 bg-brand-cream/30 dark:bg-white/5 rounded-[35px] border border-brand-dark/5 text-center">
                             <div className="w-10 h-10 bg-white dark:bg-zinc-800 rounded-full flex items-center justify-center text-brand-primary mx-auto mb-4">{m.i}</div>
-                            <h5 className="font-serif font-bold text-brand-dark dark:text-white mb-2">{m.d.name}</h5>
-                            <p className="text-[10px] text-brand-dark/50 dark:text-white/40 italic">{m.d.description}</p>
+                            <h5 className="font-serif font-bold text-brand-dark dark:text-white mb-2 leading-tight">{m.d.name}</h5>
+                            <p className="text-[10px] text-brand-dark/50 dark:text-white/40 italic line-clamp-2">{m.d.description}</p>
                          </div>
                        ))}
                     </div>
