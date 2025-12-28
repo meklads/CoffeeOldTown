@@ -1,21 +1,12 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { RotateCcw, Baby, HeartPulse, Zap, Camera, Utensils, ShieldAlert, Terminal, Settings, ArrowRight, RefreshCw, Key, UploadCloud, Check, AlertCircle } from 'lucide-react';
+import { RotateCcw, Baby, HeartPulse, Zap, Camera, Utensils, ShieldAlert, Terminal, Settings, ArrowRight, RefreshCw, Key, UploadCloud, Check, AlertCircle, ImagePlus } from 'lucide-react';
 import { SectionId, BioPersona } from '../types.ts';
 import { useApp } from '../context/AppContext.tsx';
 import { analyzeMealImage } from '../services/geminiService.ts';
 
-// Define the AIStudio interface to resolve conflicting global property declarations.
-interface AIStudio {
-  hasSelectedApiKey(): Promise<boolean>;
-  openSelectKey(): Promise<void>;
-}
-
-declare global {
-  interface Window {
-    aistudio?: AIStudio;
-  }
-}
+// Removed local AIStudio interface and Window augmentation as it conflicts with pre-existing global definitions.
+// Window.aistudio is assumed to be provided by the environment as per the coding guidelines.
 
 const Hero: React.FC = () => {
   const { incrementScans, setLastAnalysisResult, lastAnalysisResult, currentPersona, setCurrentPersona, language, setView } = useApp();
@@ -43,7 +34,6 @@ const Hero: React.FC = () => {
 
   const currentConf = personaConfigs[currentPersona];
 
-  // مزامنة ذكية: عند تغيير البروتوكول، إذا كانت هناك صورة، نعود لحالة "الجاهزية" للتحليل الجديد
   useEffect(() => {
     if (prevPersonaRef.current !== currentPersona) {
       if (image && status === 'success') {
@@ -54,10 +44,13 @@ const Hero: React.FC = () => {
     }
   }, [currentPersona, image, status, setLastAnalysisResult]);
 
+  // handleKeySetup uses window.aistudio which is assumed to be globally typed now.
   const handleKeySetup = async () => {
-    if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
+    // @ts-ignore - aistudio is assumed available but we use a check to be safe
+    const aistudio = (window as any).aistudio;
+    if (aistudio && typeof aistudio.openSelectKey === 'function') {
       try {
-        await window.aistudio.openSelectKey();
+        await aistudio.openSelectKey();
         if (image) handleAnalyze();
       } catch (e) {
         console.error("Key selection failed");
@@ -107,6 +100,12 @@ const Hero: React.FC = () => {
     setErrorMsg(null);
     if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
     if (fileInputRef.current) fileInputRef.current.value = '';
+    fileInputRef.current?.click(); // التوجيه الفوري لرفع صوره جديده
+  };
+
+  const triggerFilePicker = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    fileInputRef.current?.click();
   };
 
   const handleAnalyze = async (e?: React.MouseEvent) => {
@@ -160,18 +159,12 @@ const Hero: React.FC = () => {
     } catch (err: any) {
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       setStatus('error');
-      
       const isQuota = err.message === "QUOTA_EXCEEDED";
-      // Fix: Check for 'Requested entity was not found' to handle key selection state reset as per guidelines
       const isKeyError = err.message === "CONFIG_ERROR" || err.message === "KEY_INVALID" || err.message?.includes("Requested entity was not found");
 
       setErrorMsg({
         title: isKeyError ? (isAr ? "تحذير المفتاح" : "Key Warning") : isQuota ? (isAr ? "ضغط على الشبكة" : "Network Load") : (isAr ? "فشل الارتباط" : "Neural Link Failure"),
-        detail: isKeyError 
-          ? (isAr ? "يجب ضبط مفتاح API في إعدادات فيرسال أو ربطه يدوياً." : "API Key is missing or invalid. Please link manually.")
-          : isQuota 
-            ? (isAr ? "وصلت للحد الأقصى المجاني من جوجل. انتظر دقيقة." : "Google API limit reached. Try in 60s.")
-            : (isAr ? "لم نتمكن من إتمام التحليل، يرجى المحاولة لاحقاً." : "Unexpected error during cloud analysis."),
+        detail: isKeyError ? (isAr ? "يجب ضبط مفتاح API." : "API Key is missing.") : isQuota ? (isAr ? "وصلت للحد الأقصى." : "API limit reached.") : (isAr ? "فشل التحليل." : "Analysis failed."),
         type: isKeyError ? 'key' : isQuota ? 'quota' : 'general'
       });
     }
@@ -231,6 +224,16 @@ const Hero: React.FC = () => {
                    <div className="relative h-full w-full">
                       <img src={image} className="w-full h-full object-cover transition-all duration-700 group-hover:scale-105" alt="Meal" />
                       
+                      {/* زر تبديل العينة الطافي - Floating Swap Button */}
+                      {(status === 'idle' || status === 'success') && (
+                        <button 
+                          onClick={triggerFilePicker}
+                          className="absolute top-8 right-8 z-50 w-12 h-12 bg-white/90 backdrop-blur-md text-brand-dark rounded-2xl flex items-center justify-center shadow-2xl hover:bg-brand-primary hover:text-white transition-all transform hover:rotate-12 active:scale-90"
+                        >
+                          <ImagePlus size={20} />
+                        </button>
+                      )}
+
                       {status === 'loading' && (
                         <div className="absolute inset-0 bg-brand-dark/95 backdrop-blur-xl flex flex-col items-center justify-center p-12 text-center animate-fade-in z-50">
                            <div className="relative mb-10">
@@ -251,7 +254,7 @@ const Hero: React.FC = () => {
                       {status === 'success' && lastAnalysisResult && (
                         <div className="absolute inset-x-6 bottom-6 bg-white/95 dark:bg-brand-dark/95 backdrop-blur-2xl rounded-[45px] p-8 border border-white/20 shadow-glow animate-fade-in-up z-50">
                            <div className="flex justify-between items-start mb-6">
-                              <div className="space-y-1">
+                              <div className="space-y-1 text-left">
                                  <span className={`text-[8px] font-black uppercase tracking-[0.4em] ${currentConf.accent}`}>{isAr ? 'تقرير الأيض' : 'METABOLIC_REPORT'}</span>
                                  <h4 className="text-2xl font-serif font-bold text-brand-dark dark:text-white tracking-tight line-clamp-1">{lastAnalysisResult.summary}</h4>
                               </div>
@@ -275,7 +278,7 @@ const Hero: React.FC = () => {
                            </div>
                            <div className="flex gap-2">
                              <button onClick={handleReset} className={`flex-1 py-4 text-white rounded-2xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest transition-all ${currentConf.color} hover:scale-105`}>
-                                <RotateCcw size={14} /> {isAr ? 'إعادة' : 'RESET'}
+                                <RefreshCw size={14} /> {isAr ? 'عينة جديدة' : 'NEW SPECIMEN'}
                              </button>
                              <button onClick={() => setView('vaults')} className="flex-1 py-4 bg-white dark:bg-white/5 text-brand-dark dark:text-white border border-brand-dark/5 rounded-2xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest hover:bg-brand-dark hover:text-white transition-all">
                                 {isAr ? 'الأرشيف' : 'ARCHIVE'} <ArrowRight size={14} />
@@ -284,44 +287,20 @@ const Hero: React.FC = () => {
                         </div>
                       )}
 
-                      {status === 'error' && errorMsg && (
-                        <div className="absolute inset-0 bg-red-600/95 backdrop-blur-xl flex flex-col items-center justify-center p-12 text-center text-white animate-fade-in z-50">
-                           <AlertCircle size={64} className="mb-6 animate-bounce" />
-                           <h3 className="text-2xl font-serif font-bold mb-4">{errorMsg.title}</h3>
-                           <p className="text-base font-medium italic opacity-80 mb-8 max-w-xs">{errorMsg.detail}</p>
-                           <div className="flex flex-col gap-3 w-full max-w-[240px]">
-                              {errorMsg.type === 'key' ? (
-                                <button onClick={handleKeySetup} className="bg-white text-brand-dark px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-brand-primary hover:text-white transition-all shadow-2xl flex items-center justify-center gap-2">
-                                  <Key size={14} /> {isAr ? 'ربط المفتاح يدوياً' : 'CONNECT MANUALLY'}
-                                </button>
-                              ) : (
-                                <button onClick={(e) => handleAnalyze(e)} className="bg-white text-red-600 px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-brand-dark hover:text-white transition-all shadow-2xl flex items-center justify-center gap-2">
-                                  <RefreshCw size={14} /> {isAr ? 'إعادة المحاولة' : 'RETRY LINK'}
-                                </button>
-                              )}
-                              <button onClick={handleReset} className="bg-transparent text-white/60 border border-white/20 px-8 py-3 rounded-2xl font-black text-[9px] uppercase tracking-widest hover:text-white transition-all">
-                                 {isAr ? 'إلغاء' : 'CANCEL'}
-                              </button>
-                           </div>
-                        </div>
-                      )}
-
                       {status === 'idle' && (
                          <div 
-                          className="absolute inset-0 flex flex-col items-center justify-center bg-brand-dark/60 group-hover:bg-brand-dark/20 transition-all z-40 cursor-pointer text-white text-center p-10"
+                          className="absolute inset-0 flex flex-col items-center justify-center bg-brand-dark/60 group-hover:bg-brand-dark/40 transition-all z-40 cursor-pointer text-white text-center p-10"
                           onClick={(e) => handleAnalyze(e)}
                          >
-                            <button 
-                              className={`w-28 h-28 rounded-full flex items-center justify-center shadow-glow animate-pulse hover:scale-110 transition-transform ${currentConf.color} text-white pointer-events-none mb-6`}
-                            >
+                            <button className={`w-28 h-28 rounded-full flex items-center justify-center shadow-glow animate-pulse hover:scale-110 transition-transform ${currentConf.color} text-white pointer-events-none mb-6`}>
                                <Zap size={44} fill="currentColor" />
                             </button>
                             <div className="space-y-2 animate-fade-in">
                                <h4 className="text-2xl font-serif font-bold italic">
-                                 {isAr ? `تغيير البروتوكول لـ ${currentConf.label}` : `Switch to ${currentConf.label}`}
+                                 {isAr ? `تفعيل تحليل ${currentConf.label}` : `Activate ${currentConf.label}`}
                                </h4>
                                <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-60">
-                                 {isAr ? 'انقر لإعادة التشخيص الفوري' : 'CLICK TO RE-DIAGNOSE NOW'}
+                                 {isAr ? 'انقر لبدء تشريح العينة' : 'CLICK TO DISSECT SPECIMEN'}
                                </p>
                             </div>
                          </div>
