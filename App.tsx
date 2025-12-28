@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Navbar from './components/Navbar.tsx';
 import Hero from './components/Hero.tsx';
 import SmartNutritionTool from './components/SmartNutritionTool.tsx';
-import MealScanner from './components/MealScanner.tsx';
+import BioNexus from './components/BioNexus.tsx';
 import VaultsPage from './components/VaultsPage.tsx';
 import RecipeDetail from './components/RecipeDetail.tsx';
 import Footer from './components/Footer.tsx';
@@ -61,10 +61,8 @@ const App: React.FC = () => {
     localStorage.setItem('ot_lang', language);
   }, [language]);
 
-  // حفظ البروتوكول الحالي في الذاكرة
   useEffect(() => {
     localStorage.setItem('ot_persona', currentPersona);
-    // تم إزالة الكود الذي يمسح النتائج هنا لضمان استمرارية العرض
   }, [currentPersona]);
 
   useEffect(() => {
@@ -132,7 +130,12 @@ const App: React.FC = () => {
 
   const scrollTo = useCallback((id: string) => {
     const el = document.getElementById(id);
-    if (el) window.scrollTo({ top: el.offsetTop - 80, behavior: 'smooth' });
+    if (el) {
+      const offset = 80;
+      const elementPosition = el.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - offset;
+      window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+    }
   }, []);
 
   const HorizontalDivider = () => (
@@ -150,11 +153,11 @@ const App: React.FC = () => {
           <div className="animate-fade-in space-y-0 overflow-hidden bg-brand-light dark:bg-brand-dark bg-grain">
             <Hero />
             <HorizontalDivider />
+            <BioNexus />
+            <HorizontalDivider />
             <SmartNutritionTool />
             <HorizontalDivider />
             <TrendingRecipes />
-            <HorizontalDivider />
-            <MealScanner />
             <HorizontalDivider />
             <KnowledgeHub />
           </div>
