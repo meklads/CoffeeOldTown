@@ -5,10 +5,21 @@ import { UserHealthProfile, MealAnalysisResult, MealPlanRequest, DayPlan, Feedba
 const mealAnalysisSchema = {
   type: Type.OBJECT,
   properties: {
-    ingredients: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, calories: { type: Type.NUMBER } }, required: ["name", "calories"] } },
+    ingredients: { 
+      type: Type.ARRAY, 
+      items: { 
+        type: Type.OBJECT, 
+        properties: { name: { type: Type.STRING }, calories: { type: Type.NUMBER } }, 
+        required: ["name", "calories"] 
+      } 
+    },
     totalCalories: { type: Type.NUMBER },
     healthScore: { type: Type.NUMBER },
-    macros: { type: Type.OBJECT, properties: { protein: { type: Type.NUMBER }, carbs: { type: Type.NUMBER }, fat: { type: Type.NUMBER } }, required: ["protein", "carbs", "fat"] },
+    macros: { 
+      type: Type.OBJECT, 
+      properties: { protein: { type: Type.NUMBER }, carbs: { type: Type.NUMBER }, fat: { type: Type.NUMBER } }, 
+      required: ["protein", "carbs", "fat"] 
+    },
     summary: { type: Type.STRING },
     personalizedAdvice: { type: Type.STRING }
   },
@@ -29,11 +40,10 @@ const mealPlanSchema = {
 };
 
 /**
- * وظيفة تحليل الوجبات: تستدعي Google Gemini مباشرة من المتصفح
- * لتجنب قيود Vercel (10 ثوانٍ) تماماً.
+ * Analyzes meal image using client-side Gemini 3 model.
+ * Creates a fresh GoogleGenAI instance on every call.
  */
 export const analyzeMealImage = async (base64Image: string, profile: UserHealthProfile, lang: string = 'en'): Promise<MealAnalysisResult | null> => {
-  // الحصول على المفتاح فوراً من البيئة المحقونة
   const apiKey = process.env.API_KEY;
   if (!apiKey) throw new Error("API_KEY_MISSING");
 
@@ -41,20 +51,23 @@ export const analyzeMealImage = async (base64Image: string, profile: UserHealthP
     const ai = new GoogleGenAI({ apiKey });
     const base64Data = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
     
-    // استخدام gemini-3-flash-preview لقدراته الفائقة في تحليل الصور والنصوص معاً
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: {
         parts: [
           { inlineData: { data: base64Data, mimeType: 'image/jpeg' } },
-          { text: `Bio-Scan Protocol. Persona: ${profile?.persona || 'General'}. Focus: Ingredients, Health Score, Macros. Output: JSON. Language: ${lang === 'ar' ? 'Arabic' : 'English'}.` }
+          { text: `Systematic Bio-Scan Protocol. 
+          User Bio-Profile: ${profile?.persona || 'General'}.
+          Analyze: Ingredients, Caloric density, Health viability.
+          Output Format: JSON.
+          Language: ${lang === 'ar' ? 'Arabic' : 'English'}.` }
         ]
       },
       config: {
         responseMimeType: "application/json",
         responseSchema: mealAnalysisSchema,
         temperature: 0.1,
-        thinkingConfig: { thinkingBudget: 0 } // لضمان أسرع استجابة
+        thinkingConfig: { thinkingBudget: 0 }
       }
     });
     
@@ -62,17 +75,17 @@ export const analyzeMealImage = async (base64Image: string, profile: UserHealthP
     const data = JSON.parse(response.text.trim());
     return { ...data, imageUrl: base64Image, timestamp: new Date().toLocaleString() };
   } catch (e: any) {
-    console.error("Browser SDK Analysis Failed:", e);
-    // إذا كان الخطأ متعلق بصلاحية المفتاح أو الحساب المدفوع
+    console.error("Analysis Failed:", e);
     if (e.message?.includes("entity was not found") || e.message?.includes("API key")) {
       throw new Error("KEY_REBIND_REQUIRED");
     }
-    throw new Error("SDK_PROCESSING_ERROR");
+    throw e;
   }
 };
 
 /**
- * توليد خطة الوجبات عبر SDK المتصفح
+ * Generates meal plans using Gemini 3 model.
+ * Creates a fresh GoogleGenAI instance on every call.
  */
 export const generateMealPlan = async (request: MealPlanRequest, lang: string, feedback: FeedbackEntry[] = []): Promise<DayPlan | null> => {
   const apiKey = process.env.API_KEY;
@@ -82,7 +95,7 @@ export const generateMealPlan = async (request: MealPlanRequest, lang: string, f
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Generate metabolic meal plan for ${request.goal} target. Profile: ${request.persona}. Lang: ${lang === 'ar' ? 'Arabic' : 'English'}. Feedback: ${JSON.stringify(feedback.slice(-3))}.`,
+      contents: `Synthesize metabolic meal plan. Goal: ${request.goal}. Persona: ${request.persona}. Lang: ${lang === 'ar' ? 'Arabic' : 'English'}. User Feedback Loop: ${JSON.stringify(feedback.slice(-3))}.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: mealPlanSchema,
@@ -91,7 +104,7 @@ export const generateMealPlan = async (request: MealPlanRequest, lang: string, f
     });
     return JSON.parse(response.text || '{}');
   } catch (e) {
-    console.error("Browser SDK Planning Failed:", e);
+    console.error("Planning Failed:", e);
     return null;
   }
 };
@@ -103,7 +116,7 @@ export const generateMascot = async (prompt: string): Promise<string | null> => 
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
-      contents: { parts: [{ text: `Clinical-grade minimalist mascot icon for: ${prompt}. Pure white background, high contrast.` }] },
+      contents: { parts: [{ text: `Clinical minimalist brand icon: ${prompt}. Pure white background, high-end laboratory aesthetics.` }] },
       config: { imageConfig: { aspectRatio: "1:1" } }
     });
     const parts = response.candidates?.[0]?.content?.parts;
