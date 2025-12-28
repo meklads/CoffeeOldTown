@@ -5,13 +5,13 @@ export const config = {
   maxDuration: 60,
 };
 
-const dayPlanSchema = {
+const minimalSchema = {
   type: Type.OBJECT,
   properties: {
-    breakfast: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, calories: { type: Type.STRING }, description: { type: Type.STRING } }, required: ["name", "calories", "description"] },
-    lunch: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, calories: { type: Type.STRING }, description: { type: Type.STRING } }, required: ["name", "calories", "description"] },
-    dinner: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, calories: { type: Type.STRING }, description: { type: Type.STRING } }, required: ["name", "calories", "description"] },
-    snack: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, calories: { type: Type.STRING }, description: { type: Type.STRING } }, required: ["name", "calories", "description"] },
+    breakfast: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, calories: { type: Type.STRING } }, required: ["name", "calories"] },
+    lunch: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, calories: { type: Type.STRING } }, required: ["name", "calories"] },
+    dinner: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, calories: { type: Type.STRING } }, required: ["name", "calories"] },
+    snack: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, calories: { type: Type.STRING } }, required: ["name", "calories"] },
     totalCalories: { type: Type.STRING },
     advice: { type: Type.STRING }
   },
@@ -20,27 +20,23 @@ const dayPlanSchema = {
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).end();
-  const { request, lang, feedback } = req.body;
+  const { request, lang } = req.body;
 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Generate a 1-day meal plan for goal: ${request.goal}, persona: ${request.persona || 'General'}. Output JSON only. Language: ${lang === 'ar' ? 'Arabic' : 'English'}. Include totalCalories and advice.`,
+      contents: `Short meal plan for ${request.goal}. Lang: ${lang === 'ar' ? 'Ar' : 'En'}. JSON only.`,
       config: { 
         responseMimeType: "application/json",
-        responseSchema: dayPlanSchema,
+        responseSchema: minimalSchema,
         temperature: 0.1,
         thinkingConfig: { thinkingBudget: 0 }
       }
     });
 
-    const resultText = response.text?.trim();
-    if (!resultText) throw new Error("Empty AI Response");
-
-    return res.status(200).json(JSON.parse(resultText));
+    return res.status(200).json(JSON.parse(response.text.trim()));
   } catch (error: any) {
-    console.error("Critical Synthesis Error:", error);
-    return res.status(500).json({ error: 'SYNTHESIS_FAILED', details: error.message });
+    return res.status(500).json({ error: 'FAILED' });
   }
 }
