@@ -1,18 +1,23 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Utensils, Zap, HeartPulse, Baby, ShieldAlert, Check, BrainCircuit, RefreshCcw, UploadCloud, AlertCircle, Sparkles, Info, Key } from 'lucide-react';
+import { Utensils, Zap, HeartPulse, Baby, ShieldAlert, Check, BrainCircuit, RefreshCcw, UploadCloud, AlertCircle, Sparkles, Info, Key, Globe, Radio } from 'lucide-react';
 import { SectionId, BioPersona } from '../types.ts';
 import { useApp } from '../context/AppContext.tsx';
 import { analyzeMealImage } from '../services/geminiService.ts';
 
 const Hero: React.FC = () => {
-  const { incrementScans, setLastAnalysisResult, lastAnalysisResult, currentPersona, setCurrentPersona, language, setIsApiKeyLinked } = useApp();
+  const { incrementScans, setLastAnalysisResult, lastAnalysisResult, currentPersona, setCurrentPersona, language, isApiKeyLinked, setIsApiKeyLinked } = useApp();
   const [image, setImage] = useState<string | null>(lastAnalysisResult?.imageUrl || null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'error' | 'success'>(lastAnalysisResult ? 'success' : 'idle');
   const [showTooltip, setShowTooltip] = useState(false);
   
   const isAr = language === 'ar';
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Check if API key is already present in environment (auto-injected by some platforms)
+  useEffect(() => {
+    if (process.env.API_KEY) setIsApiKeyLinked(true);
+  }, []);
 
   const personaConfigs: Record<BioPersona, { label: string, icon: React.ReactNode, accent: string, color: string, glow: string }> = {
     GENERAL: { label: isAr ? 'بروتوكول عام' : 'GENERAL PROTOCOL', icon: <Utensils size={20} />, accent: 'text-[#C2A36B]', color: 'bg-[#C2A36B]', glow: 'shadow-[#C2A36B]/20' },
@@ -27,7 +32,6 @@ const Hero: React.FC = () => {
     if (window.aistudio) {
       await window.aistudio.openSelectKey();
       setIsApiKeyLinked(true);
-      alert(isAr ? 'تم ربط المفتاح بنجاح! جرب المسح الآن.' : 'Key linked successfully! Try scanning now.');
     }
   };
 
@@ -37,7 +41,7 @@ const Hero: React.FC = () => {
       img.src = base64Str;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_DIM = 380; // تقليل الحجم لسرعة فائقة
+        const MAX_DIM = 400; 
         let width = img.width;
         let height = img.height;
         if (width > height) { if (width > MAX_DIM) { height *= MAX_DIM / width; width = MAX_DIM; } }
@@ -45,7 +49,7 @@ const Hero: React.FC = () => {
         canvas.width = width; canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.4)); // ضغط أكبر (0.4)
+        resolve(canvas.toDataURL('image/jpeg', 0.5)); 
       };
     });
   };
@@ -76,6 +80,7 @@ const Hero: React.FC = () => {
         setStatus('error');
       }
     } catch (err) {
+      console.error("Scanner failed:", err);
       setStatus('error');
     }
   };
@@ -93,16 +98,30 @@ const Hero: React.FC = () => {
         <div className="grid lg:grid-cols-12 gap-12 items-center">
           <div className="lg:col-span-5 space-y-10">
             <div className="space-y-6">
-              <div className="inline-flex items-center gap-3 px-4 py-2 bg-brand-dark dark:bg-white/5 text-brand-primary rounded-full border border-white/5">
-                <ShieldAlert size={14} className="animate-pulse" />
-                <span className="text-[9px] font-black uppercase tracking-[0.4em]">{isAr ? 'نظام التشخيص الفوري 3.0' : 'INSTANT DIAGNOSTIC 3.0'}</span>
+              <div className="flex flex-wrap gap-3">
+                 <div className="inline-flex items-center gap-3 px-4 py-2 bg-brand-dark dark:bg-white/5 text-brand-primary rounded-full border border-white/5 shadow-xl">
+                    <ShieldAlert size={14} className="animate-pulse" />
+                    <span className="text-[9px] font-black uppercase tracking-[0.4em]">{isAr ? 'نظام التشخيص 3.0' : 'DIAGNOSTIC 3.0'}</span>
+                 </div>
+                 
+                 <div className={`inline-flex items-center gap-3 px-4 py-2 rounded-full border transition-all ${isApiKeyLinked ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : 'bg-brand-primary/10 border-brand-primary/30 text-brand-primary'}`}>
+                    {isApiKeyLinked ? <Radio size={14} className="animate-pulse" /> : <Globe size={14} />}
+                    <span className="text-[9px] font-black uppercase tracking-[0.4em]">{isApiKeyLinked ? (isAr ? 'ربط عصبي مباشر' : 'DIRECT NEURAL LINK') : (isAr ? 'اتصال عام' : 'GLOBAL RELAY')}</span>
+                 </div>
               </div>
+
               <h1 className="text-5xl md:text-7xl font-serif font-bold text-brand-dark dark:text-white tracking-tighter leading-none">
                 Metabolic <br /> <span className={`${currentConf.accent} italic`}>{isAr ? 'التشخيص.' : 'Diagnostics.'}</span>
               </h1>
-              <button onClick={handleLinkKey} className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-brand-primary/60 hover:text-brand-primary transition-all">
-                <Key size={14} /> {isAr ? 'تحسين استقرار الاتصال' : 'STABILIZE CONNECTION'}
-              </button>
+              
+              {!isApiKeyLinked && (
+                <p className="text-xs text-brand-dark/40 dark:text-white/30 italic font-medium max-w-sm">
+                  {isAr ? 'تواجه مشاكل في السرعة؟ اربط مفتاحك الخاص لتجاوز قيود الخادم العامة.' : 'Experiencing lag? Link your private key to bypass public server limits.'}
+                  <button onClick={handleLinkKey} className="ml-2 text-brand-primary font-black underline decoration-brand-primary/30 hover:decoration-brand-primary transition-all">
+                    {isAr ? 'ربط الآن' : 'LINK NOW'}
+                  </button>
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -128,8 +147,12 @@ const Hero: React.FC = () => {
                       <img src={image} className="w-full h-full object-cover" alt="Meal" />
                       {status === 'loading' && (
                         <div className="absolute inset-0 bg-brand-dark/80 backdrop-blur-md flex flex-col items-center justify-center p-12 text-center text-white z-50">
-                           <BrainCircuit size={80} className="text-brand-primary animate-pulse mb-6" />
-                           <h3 className="text-2xl font-serif font-bold italic tracking-widest">{isAr ? 'تحليل سريع...' : 'Turbo Analysis...'}</h3>
+                           <div className="relative mb-8">
+                              <BrainCircuit size={80} className="text-brand-primary animate-pulse" />
+                              <div className="absolute -inset-4 border-2 border-brand-primary/20 rounded-full animate-ping" />
+                           </div>
+                           <h3 className="text-2xl font-serif font-bold italic tracking-widest mb-2">{isAr ? 'جاري التحليل...' : 'Analyzing...'}</h3>
+                           <p className="text-[9px] font-black uppercase tracking-[0.5em] text-brand-primary/60">{isApiKeyLinked ? 'DIRECT PROTOCOL ACTIVE' : 'VIA GLOBAL RELAY'}</p>
                         </div>
                       )}
                       {status === 'success' && lastAnalysisResult && (
@@ -137,23 +160,29 @@ const Hero: React.FC = () => {
                            <div className="flex justify-between items-start mb-4">
                               <div className="space-y-1">
                                 <h4 className="text-2xl font-serif font-bold text-brand-dark dark:text-white">{lastAnalysisResult.summary}</h4>
-                                <div className="relative inline-flex items-center gap-2 px-3 py-1 bg-brand-primary/10 rounded-full border border-brand-primary/20 cursor-help" onMouseEnter={() => setShowTooltip(true)} onMouseLeave={() => setShowTooltip(false)}>
+                                <div className="relative inline-flex items-center gap-2 px-3 py-1 bg-brand-primary/10 rounded-full border border-brand-primary/20">
                                   <span className="text-[9px] font-black text-brand-primary uppercase tracking-widest">{isAr ? 'الصحة' : 'HEALTH'}: {lastAnalysisResult.healthScore}%</span>
-                                  <Info size={10} />
+                                  <Sparkles size={10} className="text-brand-primary animate-pulse" />
                                 </div>
                               </div>
-                              <button onClick={resetScanner} className="p-2 text-brand-primary"><RefreshCcw size={20} /></button>
+                              <button onClick={resetScanner} className="p-2 text-brand-primary hover:rotate-180 transition-transform duration-700"><RefreshCcw size={20} /></button>
                            </div>
-                           <button onClick={resetScanner} className="w-full py-4 bg-brand-dark text-white rounded-2xl text-[10px] font-black uppercase tracking-widest">{isAr ? 'عينة جديدة' : 'NEW SPECIMEN'}</button>
+                           <button onClick={resetScanner} className="w-full py-4 bg-brand-dark text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-primary transition-all">{isAr ? 'عينة جديدة' : 'NEW SPECIMEN'}</button>
                         </div>
                       )}
                       {status === 'error' && (
                         <div className="absolute inset-0 bg-brand-dark/95 backdrop-blur-lg flex flex-col items-center justify-center p-12 text-center text-white z-50">
-                           <AlertCircle size={60} className="text-red-500 mb-4" />
-                           <h3 className="text-xl font-serif font-bold mb-2">{isAr ? 'تجاوز الوقت' : 'Timeout Reached'}</h3>
-                           <p className="text-xs text-white/40 mb-8 italic">{isAr ? 'الخادم بطيء، اربط مفتاحك الخاص للسرعة القصوى.' : 'Server lag. Link your own key for 10x speed.'}</p>
-                           <button onClick={handleAnalyze} className="w-full py-4 bg-brand-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest mb-4">RETRY</button>
-                           <button onClick={handleLinkKey} className="w-full py-4 border border-white/10 text-white/60 rounded-2xl text-[10px] font-black uppercase tracking-widest">LINK PRIVATE KEY</button>
+                           <AlertCircle size={60} className="text-red-500 mb-4 animate-bounce" />
+                           <h3 className="text-xl font-serif font-bold mb-2">{isAr ? 'فشل الاتصال' : 'Link Disruption'}</h3>
+                           <p className="text-xs text-white/40 mb-8 italic">{isAr ? 'قد يكون السيرفر العام بطيئاً. جرب استخدام مفتاحك المباشر.' : 'Global relay timed out. Switch to Direct Link for 10x reliability.'}</p>
+                           <div className="flex flex-col w-full gap-3">
+                              <button onClick={handleAnalyze} className="w-full py-4 bg-brand-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-glow">RETRY</button>
+                              {!isApiKeyLinked && (
+                                <button onClick={handleLinkKey} className="w-full py-4 border border-white/10 text-white/60 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/5 transition-all">
+                                   LINK PRIVATE KEY
+                                </button>
+                              )}
+                           </div>
                         </div>
                       )}
                       {status === 'idle' && (
