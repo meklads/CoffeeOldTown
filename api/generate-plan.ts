@@ -64,8 +64,7 @@ export default async function handler(req: any, res: any) {
   
   const { request, lang, feedback } = req.body;
 
-  // Fixed: Always use process.env.API_KEY directly for initialization as per @google/genai guidelines.
-  if (!process.env.API_KEY) return res.status(500).json({ error: 'SYSTEM_FAULT: API key missing.' });
+  if (!process.env.API_KEY) return res.status(500).json({ error: 'API_KEY_MISSING' });
 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -74,37 +73,32 @@ export default async function handler(req: any, res: any) {
     const goal = request.goal;
     const language = lang === 'ar' ? 'Arabic (العربية)' : 'English';
 
-    const prompt = `Act as a World-Class Metabolic Scientist and Clinical Nutritionist.
+    const prompt = `Act as a World-Class Metabolic Scientist.
     Goal: ${goal}
     User Bio-Persona: ${persona}
-    User Feedback History: ${JSON.stringify(feedback || [])}
+    User Feedback: ${JSON.stringify(feedback || [])}
     Language: ${language}
 
-    TASK: Synthesize a 1-day precision metabolic blueprint. 
-    Instructions:
-    1. Provide exact calorie/protein estimates.
-    2. Description must explain the biological "Why" for this specific user persona.
-    3. Return strictly valid JSON following the schema.`;
+    TASK: Create a 1-day precision meal plan.
+    Strictly return JSON.`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
-      // Fixed: Passing string directly to contents is cleaner and matches guidelines.
       contents: prompt,
       config: { 
         responseMimeType: "application/json",
         responseSchema: dayPlanSchema,
-        temperature: 0.2,
-        // تفعيل ميزه التفكير العميق لزيادة جودة الخطة
-        thinkingConfig: { thinkingBudget: 8000 }
+        temperature: 0.3,
+        thinkingConfig: { thinkingBudget: 10000 } // استخدام التفكير العميق للخطة
       }
     });
 
     const text = response.text;
-    if (!text) throw new Error("EMPTY_AI_RESPONSE");
+    if (!text) throw new Error("EMPTY_RESPONSE");
     
     return res.status(200).json(JSON.parse(text.trim()));
   } catch (error: any) {
-    console.error("Plan Generation API Error:", error);
-    return res.status(500).json({ error: 'Failed to generate plan', details: error.message });
+    console.error("Plan Generation Error:", error);
+    return res.status(500).json({ error: 'PLAN_FAILED', details: error.message });
   }
 }

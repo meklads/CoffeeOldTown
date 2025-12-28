@@ -95,8 +95,8 @@ const Hero: React.FC = () => {
         setErrorMsg({
           title: isAr ? "نظام التشخيص الشخصي" : "Personal Key System",
           detail: isAr 
-            ? "ربط المفاتيح يعمل حالياً فقط داخل بيئة AI Studio. لتجاوز الحد هنا، يرجى المحاولة لاحقاً أو التواصل مع المسؤول."
-            : "Key linking only works within the AI Studio environment. To bypass the limit here, please try again later or contact the administrator.",
+            ? "ربط المفاتيح التلقائي يعمل داخل بيئة AI Studio فقط. لاستخدام مفتاحك هنا، يرجى ضبطه كمتغير بيئة في Vercel."
+            : "Automatic key linking is limited to AI Studio. To use your key here, set it as an Environment Variable in Vercel.",
           type: 'help'
         });
       }, 1000);
@@ -155,9 +155,9 @@ const Hero: React.FC = () => {
       setErrorMsg({
         title: isQuota 
           ? (isAr ? "تحجيم الأداء الأيضي" : "Metabolic Throttling")
-          : (isAr ? "فشل الوحدة النمطية" : "Module Failure"),
+          : (isAr ? "فشل في الوحدة" : "Module Failure"),
         detail: isQuota
-          ? (isAr ? "وصل المختبر العام للحد الأقصى اليومي. للحصول على أداء فوري، يرجى ربط مفتاحك الخاص." : "The shared lab reached its daily limit. For instant performance, please connect your personal key.")
+          ? (isAr ? "وصل المختبر العام للحد الأقصى. يرجى تزويد النظام بمفتاح API خاص بك في إعدادات Vercel." : "The shared lab reached its daily limit. Please provide your own API_KEY in Vercel settings.")
           : (isAr ? `خطأ تقني: ${err.message}` : `Technical fault: ${err.message}`),
         type: isQuota ? 'quota' : 'general'
       });

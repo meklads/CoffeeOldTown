@@ -11,16 +11,15 @@ export const analyzeMealImage = async (base64Image: string, profile: UserHealthP
 
     if (!response.ok) {
       const errorData = await response.json();
-      // إذا كان الخطأ متعلق بالحصة، نرمي خطأ مخصص لتعرفه الواجهة
       if (response.status === 429 || errorData.error === 'QUOTA_EXCEEDED') {
         throw new Error("QUOTA_EXCEEDED");
       }
-      throw new Error(errorData.details || "API_ERROR");
+      throw new Error(errorData.details || "SERVER_ERROR");
     }
 
     return await response.json();
   } catch (error: any) {
-    console.error("Client Service Error:", error);
+    console.error("Service Layer Error:", error.message);
     throw error;
   }
 };
@@ -34,13 +33,14 @@ export const generateMealPlan = async (request: MealPlanRequest, lang: string, f
     });
 
     if (!response.ok) {
+      const errorData = await response.json();
       if (response.status === 429) throw new Error("QUOTA_EXCEEDED");
-      throw new Error("PLAN_GENERATION_FAILED");
+      throw new Error(errorData.details || "PLAN_ERROR");
     }
 
     return await response.json();
   } catch (error: any) {
-    console.error("Client Plan Error:", error);
+    console.error("Plan Service Error:", error.message);
     throw error;
   }
 };
@@ -63,5 +63,5 @@ export const generateMascot = async (prompt: string): Promise<string | null> => 
 };
 
 export const isSystemKeyAvailable = async (): Promise<boolean> => {
-  return true; // المفتاح موجود في Vercel Env
+  return true; 
 };

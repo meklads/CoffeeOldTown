@@ -43,7 +43,6 @@ const mealAnalysisSchema = {
 };
 
 export default async function handler(req: any, res: any) {
-  // تفعيل CORS للسماح بالطلبات من الواجهة الأمامية
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -54,11 +53,11 @@ export default async function handler(req: any, res: any) {
   const { image, profile, lang } = req.body;
 
   if (!process.env.API_KEY) {
-    return res.status(500).json({ error: 'SYSTEM_FAULT: API key missing on server environment.' });
+    return res.status(500).json({ error: 'API_KEY_MISSING', details: 'Please set API_KEY in Vercel Environment Variables.' });
   }
 
   if (!image) {
-    return res.status(400).json({ error: 'No image data provided' });
+    return res.status(400).json({ error: 'NO_IMAGE', details: 'No image data provided' });
   }
 
   try {
@@ -68,11 +67,11 @@ export default async function handler(req: any, res: any) {
     const persona = profile?.persona || 'GENERAL';
 
     const prompt = lang === 'ar' 
-      ? `قم بتحليل هذه الوجبة بدقة لمستخدم بروتوكول ${persona}. ركز على السعرات والماكروز. النتيجة يجب أن تكون بتنسيق JSON حصراً.`
+      ? `حلل هذه الوجبة بدقة لمستخدم بروتوكول ${persona}. ركز على السعرات والقيم الغذائية. أجب بتنسيق JSON حصراً.`
       : `Analyze this meal for a user with the ${persona} profile. Focus on calories and macros. Return strictly JSON.`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview', // استخدام نسخة فلاش لاستجابة أسرع في السيرفر
+      model: 'gemini-3-flash-preview', 
       contents: {
         parts: [
           { inlineData: { data: base64Data, mimeType: 'image/jpeg' } },
@@ -87,7 +86,7 @@ export default async function handler(req: any, res: any) {
     });
 
     const resultText = response.text;
-    if (!resultText) throw new Error("AI returned empty response");
+    if (!resultText) throw new Error("AI_EMPTY_RESPONSE");
     
     return res.status(200).json(JSON.parse(resultText.trim()));
   } catch (error: any) {
@@ -99,7 +98,7 @@ export default async function handler(req: any, res: any) {
     if (isQuota) {
       return res.status(429).json({ 
         error: 'QUOTA_EXCEEDED', 
-        details: 'Lab capacity reached. Please use a personal API key.' 
+        details: 'The lab reached its capacity. Use a personal API key or wait.' 
       });
     }
 
