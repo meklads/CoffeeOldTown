@@ -1,5 +1,4 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
 import { UserHealthProfile, MealAnalysisResult, MealPlanRequest, DayPlan, FeedbackEntry } from '../types.ts';
 
 export const analyzeMealImage = async (base64Image: string, profile: UserHealthProfile, lang: string = 'en'): Promise<MealAnalysisResult | null> => {
@@ -10,12 +9,11 @@ export const analyzeMealImage = async (base64Image: string, profile: UserHealthP
       body: JSON.stringify({ image: base64Image, profile, lang })
     });
 
-    if (!response.ok) throw new Error("API_ERROR");
-    
+    if (!response.ok) throw new Error("SCAN_TIMEOUT_OR_ERROR");
     const data = await response.json();
     return { ...data, imageUrl: base64Image, timestamp: new Date().toLocaleString() };
   } catch (error: any) {
-    console.error("Analysis Error:", error);
+    console.error("Service Analysis Error:", error);
     throw error;
   }
 };
@@ -27,9 +25,10 @@ export const generateMealPlan = async (request: MealPlanRequest, lang: string, f
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ request, lang, feedback })
     });
+    if (!response.ok) return null;
     return await response.json();
   } catch (error: any) {
-    console.error("Plan Error:", error);
+    console.error("Service Plan Error:", error);
     return null;
   }
 };

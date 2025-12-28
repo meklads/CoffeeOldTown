@@ -1,7 +1,8 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 
 export const config = {
-  maxDuration: 10, // الحد الأقصى لفيرسال
+  maxDuration: 60,
 };
 
 const mealAnalysisSchema = {
@@ -19,33 +20,30 @@ const mealAnalysisSchema = {
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).end();
-
   const { image, profile, lang } = req.body;
 
   try {
-    // Initializing with process.env.API_KEY directly as per guidelines
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
     const base64Data = image.includes(',') ? image.split(',')[1] : image;
     
-    // برومبت فائق السرعة ومختصر جداً لتقليل وقت المعالجة
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview', 
       contents: {
         parts: [
           { inlineData: { data: base64Data, mimeType: 'image/jpeg' } },
-          { text: `Quick Bio-Scan. Persona: ${profile?.persona}. Lang: ${lang}. JSON ONLY.` }
+          { text: `Analyze this meal for a ${profile?.persona || 'General'} user in ${lang === 'ar' ? 'Arabic' : 'English'}. Return valid JSON only.` }
         ]
       },
       config: { 
         responseMimeType: "application/json", 
         responseSchema: mealAnalysisSchema,
-        temperature: 0, // أسرع رد ممكن
-        thinkingConfig: { thinkingBudget: 0 } // إلغاء التفكير لضمان السرعة
+        temperature: 0.1
       }
     });
 
     return res.status(200).json(JSON.parse(response.text.trim()));
   } catch (error: any) {
-    return res.status(500).json({ error: 'TIMEOUT_RISK' });
+    console.error("Scanner API Error:", error);
+    return res.status(500).json({ error: 'ANALYSIS_FAILED' });
   }
 }
