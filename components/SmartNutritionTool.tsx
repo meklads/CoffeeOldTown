@@ -34,7 +34,6 @@ const SmartNutritionTool: React.FC = () => {
         feedbackHistory
       );
       
-      // Robust Check: Verify result structure
       if (plan && plan.breakfast && plan.lunch && plan.dinner) {
         setResult(plan);
         requestAnimationFrame(() => {
@@ -45,11 +44,11 @@ const SmartNutritionTool: React.FC = () => {
           }, 150);
         });
       } else {
-        throw new Error("MALFORMED_DATA");
+        throw new Error("SERVER_UNAVAILABLE");
       }
     } catch (err: any) {
       console.error("Synthesis failed:", err);
-      setError(isAr ? 'فشل التخليق الحيوي. يرجى المحاولة مرة أخرى.' : 'Synthesis failed. Please try again.');
+      setError(isAr ? 'عذراً، الخادم مشغول حالياً. يرجى المحاولة مرة أخرى.' : 'Server is currently busy. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -119,14 +118,18 @@ const SmartNutritionTool: React.FC = () => {
                     </div>
                     <div className="space-y-4">
                        <h4 className="text-3xl font-serif font-bold italic animate-pulse tracking-widest">{isAr ? 'جاري بناء المخطط الحيوي...' : 'Synthesizing Bio-Blueprint...'}</h4>
+                       <p className="text-[10px] text-brand-primary/40 font-black uppercase tracking-[0.5em]">{isAr ? 'ربط القنوات العصبية' : 'Linking Neural Channels'}</p>
                     </div>
                   </div>
                 ) : error ? (
                    <div className="absolute inset-0 flex flex-col items-center justify-center p-12 text-center space-y-8 animate-fade-in">
                      <AlertCircle size={70} className="text-red-500/50 animate-bounce" />
-                     <h4 className="text-3xl font-serif font-bold text-red-500">{isAr ? 'خلل في التخليق' : 'Synthesis Disruption'}</h4>
+                     <div className="space-y-2">
+                        <h4 className="text-3xl font-serif font-bold text-red-500">{isAr ? 'عذراً، حدث تأخير' : 'Synthesis Delayed'}</h4>
+                        <p className="text-brand-dark/40 dark:text-white/30 text-base font-medium italic">{error}</p>
+                     </div>
                      <button onClick={() => selectedGoal && handleGenerate(selectedGoal)} className="px-12 py-5 bg-brand-dark text-white rounded-[25px] font-black text-[10px] tracking-[0.4em] hover:bg-brand-primary transition-all shadow-glow">
-                        {isAr ? 'إعادة الربط العصبي' : 'RETRY NEURAL LINK'}
+                        {isAr ? 'إعادة المحاولة' : 'RETRY NEURAL LINK'}
                      </button>
                    </div>
                 ) : result ? (

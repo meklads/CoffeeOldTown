@@ -2,16 +2,27 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
 export const config = {
-  maxDuration: 60,
+  maxDuration: 60, // رفع الحد الأقصى للمدة
 };
 
 const mealAnalysisSchema = {
   type: Type.OBJECT,
   properties: {
-    ingredients: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, calories: { type: Type.NUMBER } }, required: ["name", "calories"] } },
+    ingredients: { 
+      type: Type.ARRAY, 
+      items: { 
+        type: Type.OBJECT, 
+        properties: { name: { type: Type.STRING }, calories: { type: Type.NUMBER } }, 
+        required: ["name", "calories"] 
+      } 
+    },
     totalCalories: { type: Type.NUMBER },
     healthScore: { type: Type.NUMBER },
-    macros: { type: Type.OBJECT, properties: { protein: { type: Type.NUMBER }, carbs: { type: Type.NUMBER }, fat: { type: Type.NUMBER } }, required: ["protein", "carbs", "fat"] },
+    macros: { 
+      type: Type.OBJECT, 
+      properties: { protein: { type: Type.NUMBER }, carbs: { type: Type.NUMBER }, fat: { type: Type.NUMBER } }, 
+      required: ["protein", "carbs", "fat"] 
+    },
     summary: { type: Type.STRING },
     personalizedAdvice: { type: Type.STRING }
   },
@@ -31,19 +42,23 @@ export default async function handler(req: any, res: any) {
       contents: {
         parts: [
           { inlineData: { data: base64Data, mimeType: 'image/jpeg' } },
-          { text: `Analyze this meal for a ${profile?.persona || 'General'} user in ${lang === 'ar' ? 'Arabic' : 'English'}. Return valid JSON only.` }
+          { text: `Quick bio-scan of this meal for a ${profile?.persona || 'General'} user. Return JSON only. Language: ${lang === 'ar' ? 'Arabic' : 'English'}.` }
         ]
       },
       config: { 
         responseMimeType: "application/json", 
         responseSchema: mealAnalysisSchema,
-        temperature: 0.1
+        temperature: 0.1, // أسرع استجابة ممكنة
+        thinkingConfig: { thinkingBudget: 0 } // منع التأخير في التفكير
       }
     });
 
-    return res.status(200).json(JSON.parse(response.text.trim()));
+    const resultText = response.text?.trim();
+    if (!resultText) throw new Error("Empty AI Response");
+    
+    return res.status(200).json(JSON.parse(resultText));
   } catch (error: any) {
-    console.error("Scanner API Error:", error);
-    return res.status(500).json({ error: 'ANALYSIS_FAILED' });
+    console.error("Critical Scanner Error:", error);
+    return res.status(500).json({ error: 'ANALYSIS_FAILED', details: error.message });
   }
 }

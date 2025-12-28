@@ -26,17 +26,21 @@ export default async function handler(req: any, res: any) {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Generate a 1-day meal plan for goal: ${request.goal}, persona: ${request.persona || 'General'}. Language: ${lang === 'ar' ? 'Arabic' : 'English'}. JSON ONLY.`,
+      contents: `Generate a 1-day meal plan for goal: ${request.goal}, persona: ${request.persona || 'General'}. Output JSON only. Language: ${lang === 'ar' ? 'Arabic' : 'English'}. Include totalCalories and advice.`,
       config: { 
         responseMimeType: "application/json",
         responseSchema: dayPlanSchema,
-        temperature: 0.2
+        temperature: 0.1,
+        thinkingConfig: { thinkingBudget: 0 }
       }
     });
 
-    return res.status(200).json(JSON.parse(response.text.trim()));
+    const resultText = response.text?.trim();
+    if (!resultText) throw new Error("Empty AI Response");
+
+    return res.status(200).json(JSON.parse(resultText));
   } catch (error: any) {
-    console.error("Synthesis API Error:", error);
-    return res.status(500).json({ error: 'SYNTHESIS_FAILED' });
+    console.error("Critical Synthesis Error:", error);
+    return res.status(500).json({ error: 'SYNTHESIS_FAILED', details: error.message });
   }
 }
