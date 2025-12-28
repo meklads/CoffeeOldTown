@@ -5,14 +5,16 @@ import { SectionId, BioPersona } from '../types.ts';
 import { useApp } from '../context/AppContext.tsx';
 import { analyzeMealImage } from '../services/geminiService.ts';
 
-// Fixed: Removed local AIStudio interface and updated global Window declaration 
-// to avoid modifier mismatch and type collisions with potentially existing definitions.
+// تعريف الواجهة لتجنب أخطاء TypeScript
+// Fix: defined AIStudio interface separately to resolve conflicts with existing global declarations
+interface AIStudio {
+  hasSelectedApiKey(): Promise<boolean>;
+  openSelectKey(): Promise<void>;
+}
+
 declare global {
   interface Window {
-    aistudio: {
-      hasSelectedApiKey: () => Promise<boolean>;
-      openSelectKey: () => Promise<void>;
-    };
+    aistudio: AIStudio;
   }
 }
 
@@ -31,6 +33,7 @@ const Hero: React.FC = () => {
   const isAr = language === 'ar';
   const fileInputRef = useRef<HTMLInputElement>(null);
   const progressIntervalRef = useRef<number | null>(null);
+  const prevPersonaRef = useRef<BioPersona>(currentPersona);
 
   const personaConfigs: Record<BioPersona, { label: string, icon: React.ReactNode, slogan: string, color: string, border: string, accent: string, bg: string }> = {
     GENERAL: { label: isAr ? 'بروتوكول عام' : 'GENERAL PROTOCOL', icon: <Utensils size={20} />, slogan: isAr ? 'تغذية متوازنة' : 'Balanced Nutrition', color: 'bg-[#C2A36B]', accent: 'text-[#C2A36B]', border: 'border-[#C2A36B]', bg: 'bg-[#C2A36B]/10' },
@@ -40,6 +43,17 @@ const Hero: React.FC = () => {
   };
 
   const currentConf = personaConfigs[currentPersona];
+
+  // مزامنة ذكية: عند تغيير البروتوكول، إذا كانت هناك صورة، نعود لحالة "الجاهزية" للتحليل الجديد
+  useEffect(() => {
+    if (prevPersonaRef.current !== currentPersona) {
+      if (image && status === 'success') {
+        setStatus('idle');
+        setLastAnalysisResult(null);
+      }
+      prevPersonaRef.current = currentPersona;
+    }
+  }, [currentPersona, image, status, setLastAnalysisResult]);
 
   const handleKeySetup = async () => {
     if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
@@ -109,8 +123,8 @@ const Hero: React.FC = () => {
     setErrorMsg(null);
     
     const steps = isAr 
-      ? ['بدء الاتصال العصبي...', 'تحميل البروتوكول...', 'تحليل الجزيئات...', 'توليد التقرير...'] 
-      : ['Initializing Link...', 'Loading Protocol...', 'Molecular Analysis...', 'Generating Report...'];
+      ? ['تغيير البروتوكول...', 'إعادة ضبط المستشعرات...', 'تشخيص حيوي مخصص...', 'إتمام التقرير الجديد...'] 
+      : ['Syncing Protocol...', 'Adjusting Sensors...', 'Custom Bio-Diagnosis...', 'Finalizing New Report...'];
     
     let currentStepIdx = 0;
     setLoadingStep(steps[0]);
@@ -294,14 +308,22 @@ const Hero: React.FC = () => {
 
                       {status === 'idle' && (
                          <div 
-                          className="absolute inset-0 flex items-center justify-center bg-brand-dark/40 group-hover:bg-brand-dark/20 transition-all z-40 cursor-pointer"
+                          className="absolute inset-0 flex flex-col items-center justify-center bg-brand-dark/60 group-hover:bg-brand-dark/20 transition-all z-40 cursor-pointer text-white text-center p-10"
                           onClick={(e) => handleAnalyze(e)}
                          >
                             <button 
-                              className={`w-28 h-28 rounded-full flex items-center justify-center shadow-glow animate-pulse hover:scale-110 transition-transform ${currentConf.color} text-white pointer-events-none`}
+                              className={`w-28 h-28 rounded-full flex items-center justify-center shadow-glow animate-pulse hover:scale-110 transition-transform ${currentConf.color} text-white pointer-events-none mb-6`}
                             >
                                <Zap size={44} fill="currentColor" />
                             </button>
+                            <div className="space-y-2 animate-fade-in">
+                               <h4 className="text-2xl font-serif font-bold italic">
+                                 {isAr ? `تغيير البروتوكول لـ ${currentConf.label}` : `Switch to ${currentConf.label}`}
+                               </h4>
+                               <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-60">
+                                 {isAr ? 'انقر لإعادة التشخيص الفوري' : 'CLICK TO RE-DIAGNOSE NOW'}
+                               </p>
+                            </div>
                          </div>
                       )}
                    </div>
