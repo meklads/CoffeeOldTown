@@ -1,6 +1,6 @@
 
-import React, { useState, useRef, useEffect } from 'react';
-import { RotateCcw, Baby, HeartPulse, Zap, Camera, Utensils, ShieldAlert, Terminal, ArrowRight, RefreshCw, UploadCloud, Check, AlertCircle, Scan, BrainCircuit } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { RotateCcw, Baby, HeartPulse, Zap, Utensils, ShieldAlert, Check, AlertCircle, Scan, BrainCircuit, RefreshCcw } from 'lucide-react';
 import { SectionId, BioPersona } from '../types.ts';
 import { useApp } from '../context/AppContext.tsx';
 import { analyzeMealImage } from '../services/geminiService.ts';
@@ -8,7 +8,7 @@ import { analyzeMealImage } from '../services/geminiService.ts';
 const Hero: React.FC = () => {
   const { incrementScans, setLastAnalysisResult, lastAnalysisResult, currentPersona, setCurrentPersona, language } = useApp();
   const [image, setImage] = useState<string | null>(lastAnalysisResult?.imageUrl || null);
-  const [status, setStatus] = useState<'idle' | 'loading' | 'error' | 'success'>('idle');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'error' | 'success'>(lastAnalysisResult ? 'success' : 'idle');
   const [loadingStep, setLoadingStep] = useState('');
   
   const isAr = language === 'ar';
@@ -37,26 +37,26 @@ const Hero: React.FC = () => {
 
   const handleAnalyze = async () => {
     if (!image || status === 'loading') return;
-    
     setStatus('loading');
-    setLoadingStep(isAr ? 'بدء التحليل الحيوي...' : 'Starting Bio-Analysis...');
+    setLoadingStep(isAr ? 'فك شفرة المكونات...' : 'Decoding Nutrients...');
 
     try {
-      // تأخير بسيط لإظهار الأنيميشن
-      await new Promise(r => setTimeout(r, 800));
-      setLoadingStep(isAr ? 'فك شفرة المكونات...' : 'Decoding Nutrients...');
-      
       const result = await analyzeMealImage(image, { chronicDiseases: "none", dietProgram: "general", activityLevel: "moderate", persona: currentPersona }, language);
-      
       if (result) {
         setLastAnalysisResult(result);
         incrementScans(result);
         setStatus('success');
       }
     } catch (err) {
-      console.error(err);
       setStatus('error');
     }
+  };
+
+  const resetScanner = () => {
+    setImage(null);
+    setStatus('idle');
+    setLastAnalysisResult(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   return (
@@ -93,20 +93,16 @@ const Hero: React.FC = () => {
           </div>
 
           <div className="lg:col-span-7 flex flex-col items-center">
-             <div className={`relative w-full max-w-[500px] aspect-[4/5] bg-white dark:bg-zinc-900 rounded-[60px] border-2 transition-all duration-700 border-brand-primary/20 shadow-4xl overflow-hidden`}>
+             <div className={`relative w-full max-w-[500px] aspect-[4/5] bg-white dark:bg-zinc-900 rounded-[60px] border-2 transition-all duration-700 ${currentConf.accent.replace('text-', 'border-')}/20 shadow-4xl overflow-hidden`}>
                 
                 {image ? (
                    <div className="relative h-full w-full">
-                      <img src={image} className={`w-full h-full object-cover transition-all duration-700 ${status === 'loading' ? 'scale-110 blur-sm' : ''}`} alt="Meal" />
+                      <img src={image} className="w-full h-full object-cover" alt="Meal" />
                       
                       {status === 'loading' && (
                         <div className="absolute inset-0 bg-brand-dark/80 backdrop-blur-md flex flex-col items-center justify-center p-12 text-center text-white z-50">
-                           <div className="relative mb-8">
-                              <Scan size={60} className={`${currentConf.accent} animate-pulse`} />
-                              <div className="absolute inset-0 border-t-2 border-brand-primary animate-scan opacity-50" />
-                           </div>
-                           <h3 className="text-2xl font-serif font-bold mb-2 animate-pulse">{loadingStep}</h3>
-                           <p className="text-[10px] font-black tracking-widest text-brand-primary uppercase">Neural Processing...</p>
+                           <Scan size={60} className={`${currentConf.accent} animate-pulse mb-4`} />
+                           <h3 className="text-2xl font-serif font-bold animate-pulse">{loadingStep}</h3>
                         </div>
                       )}
 
@@ -114,40 +110,35 @@ const Hero: React.FC = () => {
                         <div className="absolute inset-x-6 bottom-6 bg-white/95 dark:bg-brand-dark/95 backdrop-blur-2xl rounded-[45px] p-8 border border-brand-primary/20 shadow-glow animate-fade-in-up z-50">
                            <div className="flex justify-between items-center mb-6">
                               <h4 className="text-2xl font-serif font-bold text-brand-dark dark:text-white">{lastAnalysisResult.summary}</h4>
-                              <div className="bg-brand-primary text-white px-4 py-1.5 rounded-xl font-bold text-sm">
-                                {lastAnalysisResult.totalCalories} KCAL
-                              </div>
+                              <button onClick={resetScanner} className="p-2 text-brand-dark/20 hover:text-brand-primary transition-colors">
+                                <RefreshCcw size={20} />
+                              </button>
                            </div>
-                           <button onClick={() => { setImage(null); setStatus('idle'); fileInputRef.current?.click(); }} className="w-full py-4 bg-brand-dark text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-primary transition-all">
-                              {isAr ? 'عينة جديدة' : 'NEW SPECIMEN'}
+                           <div className="flex justify-between items-center mb-6 bg-brand-primary/10 p-4 rounded-2xl">
+                              <span className="text-xs font-black uppercase tracking-widest text-brand-primary">Total Load</span>
+                              <span className="text-2xl font-serif font-bold text-brand-primary">{lastAnalysisResult.totalCalories} KCAL</span>
+                           </div>
+                           <button onClick={() => fileInputRef.current?.click()} className="w-full py-4 bg-brand-dark text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-primary transition-all">
+                              {isAr ? 'تحميل عينة جديدة' : 'LOAD NEW SPECIMEN'}
                            </button>
                         </div>
                       )}
 
                       {status === 'idle' && (
                          <div className="absolute inset-0 flex flex-col items-center justify-center bg-brand-dark/40 backdrop-blur-[2px] z-40">
-                            <button onClick={handleAnalyze} className={`w-24 h-24 rounded-full flex items-center justify-center ${currentConf.color} text-white shadow-glow hover:scale-110 transition-transform group`}>
-                               <BrainCircuit size={40} className="group-hover:rotate-12 transition-transform" />
+                            <button onClick={handleAnalyze} className={`w-24 h-24 rounded-full flex items-center justify-center ${currentConf.color} text-white shadow-glow hover:scale-110 transition-transform`}>
+                               <BrainCircuit size={40} />
                             </button>
-                            <h4 className="text-xl font-serif font-bold text-white mt-6 italic drop-shadow-lg">{isAr ? 'اضغط للتحليل' : 'Analyze Now'}</h4>
-                         </div>
-                      )}
-
-                      {status === 'error' && (
-                         <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-900/80 backdrop-blur-md z-40 text-center p-10 text-white">
-                            <AlertCircle size={48} className="mb-6" />
-                            <h4 className="text-xl font-serif font-bold mb-6">{isAr ? 'فشل الاتصال بالمختبر' : 'Lab Connection Failed'}</h4>
-                            <button onClick={handleAnalyze} className="px-10 py-4 bg-white text-brand-dark rounded-2xl font-black text-[10px] tracking-widest">RETRY</button>
+                            <h4 className="text-xl font-serif font-bold text-white mt-6 italic">{isAr ? 'اضغط للتحليل' : 'Analyze Now'}</h4>
                          </div>
                       )}
                    </div>
                 ) : (
                    <div className="h-full w-full flex flex-col items-center justify-center p-12 text-center cursor-pointer group" onClick={() => fileInputRef.current?.click()}>
-                      <div className={`w-32 h-32 rounded-[45px] border-2 border-dashed border-brand-primary/20 text-brand-primary/40 group-hover:text-brand-primary group-hover:border-brand-primary transition-all flex items-center justify-center mb-8`}>
-                         <UploadCloud size={48} />
+                      <div className={`w-32 h-32 rounded-[45px] border-2 border-dashed border-brand-primary/20 text-brand-primary/40 group-hover:text-brand-primary transition-all flex items-center justify-center mb-8`}>
+                         <Utensils size={48} />
                       </div>
                       <h4 className="text-2xl font-serif font-bold text-brand-dark/30 dark:text-white/30">{isAr ? 'ارفع صورة الوجبة' : 'Upload Meal Image'}</h4>
-                      <p className="text-[10px] font-black tracking-widest text-brand-primary opacity-40 mt-4 uppercase">Specimen Ready for Scan</p>
                    </div>
                 )}
              </div>
