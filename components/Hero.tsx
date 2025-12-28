@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Utensils, Zap, HeartPulse, Baby, ShieldAlert, Check, BrainCircuit, Scan, RefreshCcw, UploadCloud, AlertCircle } from 'lucide-react';
 import { SectionId, BioPersona } from '../types.ts';
 import { useApp } from '../context/AppContext.tsx';
@@ -9,9 +9,11 @@ const Hero: React.FC = () => {
   const { incrementScans, setLastAnalysisResult, lastAnalysisResult, currentPersona, setCurrentPersona, language } = useApp();
   const [image, setImage] = useState<string | null>(lastAnalysisResult?.imageUrl || null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'error' | 'success'>(lastAnalysisResult ? 'success' : 'idle');
+  const [errorType, setErrorType] = useState<string>('');
   
   const isAr = language === 'ar';
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const timeoutRef = useRef<number | null>(null);
 
   const personaConfigs: Record<BioPersona, { label: string, icon: React.ReactNode, accent: string, color: string }> = {
     GENERAL: { label: isAr ? 'بروتوكول عام' : 'GENERAL PROTOCOL', icon: <Utensils size={20} />, accent: 'text-[#C2A36B]', color: 'bg-[#C2A36B]' },
@@ -22,26 +24,33 @@ const Hero: React.FC = () => {
 
   const currentConf = personaConfigs[currentPersona];
 
-  // وظيفة ضغط وتصغير الصورة قبل الإرسال لمنع تجمد Vercel
+  // ضغط الصورة لضمان السرعة القصوى
   const resizeImage = (base64Str: string): Promise<string> => {
     return new Promise((resolve) => {
       const img = new Image();
       img.src = base64Str;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 800;
+        const MAX_DIM = 600; // تصغير أكثر لضمان سرعة Vercel
         let width = img.width;
         let height = img.height;
 
-        if (width > MAX_WIDTH) {
-          height *= MAX_WIDTH / width;
-          width = MAX_WIDTH;
+        if (width > height) {
+          if (width > MAX_DIM) {
+            height *= MAX_DIM / width;
+            width = MAX_DIM;
+          }
+        } else {
+          if (height > MAX_DIM) {
+            width *= MAX_DIM / height;
+            height = MAX_DIM;
+          }
         }
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.7)); // ضغط الجودة لـ 70%
+        resolve(canvas.toDataURL('image/jpeg', 0.6));
       };
     });
   };
@@ -62,10 +71,23 @@ const Hero: React.FC = () => {
 
   const handleAnalyze = async () => {
     if (!image || status === 'loading') return;
+    
     setStatus('loading');
+    setErrorType('');
+
+    // مؤقت أمان: إذا استغرق الطلب أكثر من 9 ثوانٍ، نعتبره فشلاً لمنع التجمد
+    timeoutRef.current = window.setTimeout(() => {
+      if (status === 'loading') {
+        setStatus('error');
+        setErrorType('TIMEOUT');
+      }
+    }, 9000);
+
     try {
-      // إرسال الصورة المضغوطة لتسريع الاستجابة
       const result = await analyzeMealImage(image, { chronicDiseases: "none", dietProgram: "general", activityLevel: "moderate", persona: currentPersona }, language);
+      
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+
       if (result) {
         setLastAnalysisResult(result);
         incrementScans(result);
@@ -73,18 +95,26 @@ const Hero: React.FC = () => {
       } else {
         setStatus('error');
       }
-    } catch (err) {
+    } catch (err: any) {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
       console.error("Analysis Error:", err);
       setStatus('error');
     }
   };
 
   const resetScanner = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
     setImage(null);
     setStatus('idle');
     setLastAnalysisResult(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
 
   return (
     <section id={SectionId.PHASE_01_SCAN} className="relative min-h-screen pt-32 pb-20 bg-brand-light dark:bg-brand-dark transition-all duration-1000">
@@ -127,11 +157,14 @@ const Hero: React.FC = () => {
                       <img src={image} className="w-full h-full object-cover" alt="Meal" />
                       
                       {status === 'loading' && (
-                        <div className="absolute inset-0 bg-brand-dark/70 backdrop-blur-md flex flex-col items-center justify-center p-12 text-center text-white z-50">
+                        <div className="absolute inset-0 bg-brand-dark/80 backdrop-blur-md flex flex-col items-center justify-center p-12 text-center text-white z-50">
                            <div className="relative w-full h-full flex flex-col items-center justify-center">
                               <div className="absolute top-0 left-0 w-full h-1 bg-brand-primary shadow-glow animate-scan" />
                               <BrainCircuit size={80} className="text-brand-primary animate-pulse mb-6" />
-                              <h3 className="text-2xl font-serif font-bold italic tracking-widest animate-pulse">{isAr ? 'فك شفرة البيانات...' : 'Decoding Matrix...'}</h3>
+                              <h3 className="text-2xl font-serif font-bold italic tracking-widest animate-pulse">
+                                {isAr ? 'فك شفرة البيانات...' : 'Decoding Matrix...'}
+                              </h3>
+                              <p className="text-[10px] text-white/40 mt-4 tracking-widest uppercase">Vercel Fast-Path Active</p>
                            </div>
                         </div>
                       )}
@@ -155,13 +188,20 @@ const Hero: React.FC = () => {
                       )}
 
                       {status === 'error' && (
-                        <div className="absolute inset-0 bg-brand-dark/80 backdrop-blur-md flex flex-col items-center justify-center p-12 text-center text-white z-50">
+                        <div className="absolute inset-0 bg-brand-dark/90 backdrop-blur-lg flex flex-col items-center justify-center p-12 text-center text-white z-50">
                            <AlertCircle size={60} className="text-red-500 mb-4" />
-                           <h3 className="text-xl font-serif font-bold mb-6">{isAr ? 'فشل التحليل' : 'Analysis Failed'}</h3>
-                           <button onClick={handleAnalyze} className="px-8 py-3 bg-brand-primary text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-glow">
-                              {isAr ? 'إعادة المحاولة' : 'RETRY'}
+                           <h3 className="text-xl font-serif font-bold mb-2">
+                             {errorType === 'TIMEOUT' 
+                               ? (isAr ? 'انتهت المهلة - السيرفر بطيء' : 'Timeout - Server Slow') 
+                               : (isAr ? 'فشل التحليل' : 'Analysis Failed')}
+                           </h3>
+                           <p className="text-sm text-white/40 mb-8 italic">
+                             {isAr ? 'حاول استخدام صورة أصغر أو شبكة أسرع' : 'Try a smaller image or faster network'}
+                           </p>
+                           <button onClick={handleAnalyze} className="px-10 py-4 bg-brand-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-glow">
+                              {isAr ? 'إعادة المحاولة' : 'RETRY NOW'}
                            </button>
-                           <button onClick={resetScanner} className="mt-4 text-white/40 text-[10px] font-black uppercase tracking-widest underline">
+                           <button onClick={resetScanner} className="mt-6 text-white/40 text-[10px] font-black uppercase tracking-widest underline">
                               {isAr ? 'إلغاء' : 'CANCEL'}
                            </button>
                         </div>
@@ -182,7 +222,7 @@ const Hero: React.FC = () => {
                          <UploadCloud size={48} className="group-hover:-translate-y-2 transition-transform" />
                       </div>
                       <h4 className="text-2xl font-serif font-bold text-brand-dark/30 dark:text-white/30 group-hover:text-brand-primary transition-colors">{isAr ? 'ارفع صورة الوجبة' : 'Upload Meal Image'}</h4>
-                      <p className="mt-4 text-[9px] font-black uppercase tracking-[0.4em] text-brand-dark/20 dark:text-white/10">{isAr ? 'المسح الضوئي فائق السرعة' : 'ULTRA-FAST SCAN ACTIVE'}</p>
+                      <p className="mt-4 text-[9px] font-black uppercase tracking-[0.4em] text-brand-dark/20 dark:text-white/10">{isAr ? 'نظام المسح السريع مفعل' : 'ULTRA-FAST SCAN ACTIVE'}</p>
                    </div>
                 )}
              </div>

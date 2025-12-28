@@ -4,22 +4,24 @@ import { UserHealthProfile, MealAnalysisResult, MealPlanRequest, DayPlan, Feedba
 
 const getAI = () => {
   const apiKey = process.env.API_KEY;
-  if (!apiKey) throw new Error("API_KEY_NOT_CONFIGURED");
+  if (!apiKey) throw new Error("API_KEY_MISSING");
   return new GoogleGenAI({ apiKey });
 };
 
 export const analyzeMealImage = async (base64Image: string, profile: UserHealthProfile, lang: string = 'en'): Promise<MealAnalysisResult | null> => {
   try {
     const ai = getAI();
+    // تنظيف بيانات الصورة
     const base64Data = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
     const persona = profile?.persona || 'GENERAL';
 
+    // استخدام gemini-3-flash-preview مع إعدادات السرعة القصوى
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: {
         parts: [
           { inlineData: { data: base64Data, mimeType: 'image/jpeg' } },
-          { text: `Analyze for ${persona}. Return JSON only. Lang: ${lang}.` }
+          { text: `Quick Bio-Analysis for ${persona}. Language: ${lang}. Return JSON only.` }
         ]
       },
       config: {
@@ -36,14 +38,19 @@ export const analyzeMealImage = async (base64Image: string, profile: UserHealthP
           },
           required: ["ingredients", "totalCalories", "healthScore", "macros", "summary", "personalizedAdvice"]
         },
-        temperature: 0.1, // أقصى سرعة
-        thinkingConfig: { thinkingBudget: 0 } // لا تفكير، رد فوري
+        temperature: 0.1,
+        thinkingConfig: { thinkingBudget: 0 } // إلغاء التفكير لسرعة الرد
       }
     });
 
-    return { ...JSON.parse(response.text.trim()), imageUrl: base64Image, timestamp: new Date().toLocaleString() };
+    if (!response || !response.text) {
+      throw new Error("EMPTY_AI_RESPONSE");
+    }
+
+    const data = JSON.parse(response.text.trim());
+    return { ...data, imageUrl: base64Image, timestamp: new Date().toLocaleString() };
   } catch (error: any) {
-    console.error("Analysis failed:", error);
+    console.error("Gemini Service Error:", error);
     throw error;
   }
 };
@@ -56,7 +63,7 @@ export const generateMealPlan = async (request: MealPlanRequest, lang: string, f
     
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview', 
-      contents: `Quick 1-day ${persona} meal plan for ${request.goal} in ${language}. Concise JSON.`,
+      contents: `Direct 1-day ${persona} meal plan for ${request.goal} in ${language}. Return JSON.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -78,7 +85,7 @@ export const generateMealPlan = async (request: MealPlanRequest, lang: string, f
 
     return JSON.parse(response.text.trim());
   } catch (error: any) {
-    console.error("Plan synthesis failed:", error);
+    console.error("Plan Gen Error:", error);
     throw error;
   }
 };
