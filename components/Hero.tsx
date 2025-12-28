@@ -5,16 +5,14 @@ import { SectionId, BioPersona } from '../types.ts';
 import { useApp } from '../context/AppContext.tsx';
 import { analyzeMealImage } from '../services/geminiService.ts';
 
-// تعريف الواجهة لتجنب أخطاء TypeScript
-// Fix: defined AIStudio interface separately to resolve conflicts with existing global declarations
-interface AIStudio {
-  hasSelectedApiKey(): Promise<boolean>;
-  openSelectKey(): Promise<void>;
-}
-
+// Fix: Use inline type definition in global declaration to resolve naming and modifier conflicts.
+// This ensures that the global Window interface is augmented correctly in the module scope.
 declare global {
   interface Window {
-    aistudio: AIStudio;
+    aistudio?: {
+      hasSelectedApiKey(): Promise<boolean>;
+      openSelectKey(): Promise<void>;
+    };
   }
 }
 
@@ -163,12 +161,13 @@ const Hero: React.FC = () => {
       setStatus('error');
       
       const isQuota = err.message === "QUOTA_EXCEEDED";
-      const isKeyError = err.message === "CONFIG_ERROR" || err.message === "KEY_INVALID";
+      // Fix: Check for 'Requested entity was not found' to handle key selection state reset as per guidelines
+      const isKeyError = err.message === "CONFIG_ERROR" || err.message === "KEY_INVALID" || err.message?.includes("Requested entity was not found");
 
       setErrorMsg({
         title: isKeyError ? (isAr ? "تحذير المفتاح" : "Key Warning") : isQuota ? (isAr ? "ضغط على الشبكة" : "Network Load") : (isAr ? "فشل الارتباط" : "Neural Link Failure"),
         detail: isKeyError 
-          ? (isAr ? "يجب ضبط مفتاح API في إعدادات فيرسال أو ربطه يدوياً." : "API Key is missing in Vercel. Please link manually.")
+          ? (isAr ? "يجب ضبط مفتاح API في إعدادات فيرسال أو ربطه يدوياً." : "API Key is missing or invalid. Please link manually.")
           : isQuota 
             ? (isAr ? "وصلت للحد الأقصى المجاني من جوجل. انتظر دقيقة." : "Google API limit reached. Try in 60s.")
             : (isAr ? "لم نتمكن من إتمام التحليل، يرجى المحاولة لاحقاً." : "Unexpected error during cloud analysis."),
