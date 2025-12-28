@@ -2,11 +2,12 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { UserHealthProfile, MealAnalysisResult, MealPlanRequest, DayPlan, FeedbackEntry } from '../types.ts';
 
-// تهيئة مكتبة Gemini مباشرة باستخدام مفتاح الـ API من البيئة
+// تهيئة كائن الـ AI مباشرة. 
+// ملاحظة: يتم استخدام المفتاح من process.env.API_KEY الموفر من البيئة.
 const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 /**
- * تحليل صورة الوجبة باستخدام موديل Gemini 3 Flash
+ * تحليل الوجبات - يعمل مباشرة في المتصفح
  */
 export const analyzeMealImage = async (base64Image: string, profile: UserHealthProfile, lang: string = 'en'): Promise<MealAnalysisResult | null> => {
   try {
@@ -19,7 +20,7 @@ export const analyzeMealImage = async (base64Image: string, profile: UserHealthP
       contents: {
         parts: [
           { inlineData: { data: base64Data, mimeType: 'image/jpeg' } },
-          { text: `MISSION: Dissect this meal for a ${persona} protocol. Focus on ${persona === 'ATHLETE' ? 'Protein & Recovery' : persona === 'DIABETIC' ? 'Glycemic Control' : 'Metabolic Balance'}. Language: ${lang === 'ar' ? 'Arabic' : 'English'}.` }
+          { text: `SYSTEM_TASK: Dissect meal for ${persona} protocol. Lang: ${lang}. Provide JSON matching schema.` }
         ]
       },
       config: {
@@ -64,24 +65,25 @@ export const analyzeMealImage = async (base64Image: string, profile: UserHealthP
       timestamp: new Date().toLocaleString()
     };
   } catch (error: any) {
-    console.error("Neural Analysis Failure:", error);
+    console.error("Analysis Error:", error);
     throw error;
   }
 };
 
 /**
- * توليد خطة يومية باستخدام موديل Gemini 3 Pro لضمان دقة "التخليق الحيوي"
+ * تخليق الخطط الغذائية (Bio Synthesis) - تم إصلاحه ليعمل مباشرة
  */
 export const generateMealPlan = async (request: MealPlanRequest, lang: string, feedback: FeedbackEntry[] = []): Promise<DayPlan | null> => {
   try {
     const ai = getAI();
     const persona = request.persona || 'GENERAL';
+    const language = lang === 'ar' ? 'Arabic' : 'English';
     
-    const prompt = `Act as a Senior Metabolic Scientist. 
-    Synthesize a 1-day precision blueprint for: ${request.goal}. 
-    Subject Persona: ${persona}. 
-    Feedback Context: ${JSON.stringify(feedback.slice(-5))}.
-    Respond in: ${lang === 'ar' ? 'Arabic' : 'English'}.`;
+    const prompt = `Act as a Metabolic Scientist. 
+    Task: Synthesize a 1-day nutrition plan for goal: ${request.goal}.
+    Target Persona: ${persona}.
+    History context: ${JSON.stringify(feedback.slice(-3))}.
+    Response must be in ${language}.`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
@@ -136,19 +138,19 @@ export const generateMealPlan = async (request: MealPlanRequest, lang: string, f
           },
           required: ["breakfast", "lunch", "dinner", "snack", "totalCalories", "advice"]
         },
-        thinkingConfig: { thinkingBudget: 5000 }
+        thinkingConfig: { thinkingBudget: 2000 }
       }
     });
 
     return JSON.parse(response.text.trim());
   } catch (error: any) {
-    console.error("Synthesis Failure:", error);
+    console.error("Synthesis Error:", error);
     throw error;
   }
 };
 
 /**
- * توليد شعارات أو صور توضيحية باستخدام Gemini 2.5 Flash Image
+ * توليد الأيقونات (Mascot) - يعمل مباشرة
  */
 export const generateMascot = async (prompt: string): Promise<string | null> => {
   try {
@@ -156,11 +158,9 @@ export const generateMascot = async (prompt: string): Promise<string | null> => 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
-        parts: [{ text: `Professional minimalist mascot/logo for: ${prompt}. Clean background, studio lighting, high resolution.` }]
+        parts: [{ text: `Minimalist mascot icon for: ${prompt}. White background.` }]
       },
-      config: {
-        imageConfig: { aspectRatio: "1:1" }
-      }
+      config: { imageConfig: { aspectRatio: "1:1" } }
     });
 
     for (const part of response.candidates[0].content.parts) {
@@ -170,7 +170,6 @@ export const generateMascot = async (prompt: string): Promise<string | null> => 
     }
     return null;
   } catch (error) {
-    console.error("Mascot Sync Failure:", error);
     return null;
   }
 };
