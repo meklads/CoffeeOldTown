@@ -28,10 +28,10 @@ const SmartNutritionTool: React.FC = () => {
     setResult(null);
 
     try {
+      // Fixed: Removed feedbackHistory argument to match generateMealPlan definition in services/geminiService.ts
       const plan = await generateMealPlan(
         { goal: goalLabel, diet: 'balanced', persona: currentPersona }, 
-        language, 
-        feedbackHistory
+        language
       );
       
       if (plan && plan.breakfast && plan.lunch && plan.dinner) {

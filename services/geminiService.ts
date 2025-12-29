@@ -10,46 +10,40 @@ const mealAnalysisSchema = {
       items: { 
         type: Type.OBJECT, 
         properties: { 
-          name: { type: Type.STRING, description: "Name of the food item" }, 
-          calories: { type: Type.NUMBER, description: "Estimated calories" } 
+          name: { type: Type.STRING }, 
+          calories: { type: Type.NUMBER } 
         }, 
         required: ["name", "calories"] 
       } 
     },
-    totalCalories: { type: Type.NUMBER, description: "Sum of all ingredient calories" },
-    healthScore: { type: Type.NUMBER, description: "Vitality score from 0-100" },
+    totalCalories: { type: Type.NUMBER },
+    healthScore: { type: Type.NUMBER },
     macros: { 
       type: Type.OBJECT, 
       properties: { 
-        protein: { type: Type.NUMBER, description: "Grams of protein" }, 
-        carbs: { type: Type.NUMBER, description: "Grams of carbohydrates" }, 
-        fat: { type: Type.NUMBER, description: "Grams of fat" } 
+        protein: { type: Type.NUMBER }, 
+        carbs: { type: Type.NUMBER }, 
+        fat: { type: Type.NUMBER } 
       }, 
       required: ["protein", "carbs", "fat"] 
     },
-    summary: { type: Type.STRING, description: "A concise 2-3 word name for the meal" },
-    personalizedAdvice: { type: Type.STRING, description: "Medical-grade advice based on the user's specific persona" }
+    summary: { type: Type.STRING },
+    personalizedAdvice: { type: Type.STRING }
   },
   required: ["ingredients", "totalCalories", "healthScore", "macros", "summary", "personalizedAdvice"]
 };
 
+// HELPER: Safeguard API Key access
+const getAIClient = () => {
+  const key = process.env.API_KEY;
+  if (!key) throw new Error("API_KEY_MISSING");
+  return new GoogleGenAI({ apiKey: key });
+};
+
 export const analyzeMealImage = async (base64Image: string, profile: UserHealthProfile, lang: string = 'en'): Promise<MealAnalysisResult | null> => {
-  if (!process.env.API_KEY) throw new Error("API_KEY_MISSING");
-
-  // Always create new instance to ensure up-to-date key from global state
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  
-  const personaInstructions = {
-    ATHLETE: "Act as a Performance Nutritionist. Focus on protein density, leucine content for muscle synthesis, and glycogen replenishment. Use terms like 'Anabolic potential' and 'Hypertrophy support'.",
-    DIABETIC: "Act as an Endocrinologist/Dietitian. Strictly analyze Glycemic Index and Load. Warn about sugar spikes. Suggest fiber or vinegar additions to flatten the glucose curve. Prioritize low GI ingredients.",
-    PREGNANCY: "Act as an Obstetric Nutritionist. Prioritize food safety (no raw sprouts, unpasteurized cheese, undercooked meat). Focus on Folic Acid, Iron, DHA, and Calcium. Mention fetal development benefits.",
-    GENERAL: "Act as a Holistic Longevity Coach. Focus on micronutrient density, anti-inflammatory properties, and general metabolic health."
-  };
-
-  const persona = profile?.persona || 'GENERAL';
-  const instruction = personaInstructions[persona as keyof typeof personaInstructions];
-
   try {
+    const ai = getAIClient();
+    const persona = profile?.persona || 'GENERAL';
     const base64Data = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
     
     const response = await ai.models.generateContent({
@@ -57,79 +51,57 @@ export const analyzeMealImage = async (base64Image: string, profile: UserHealthP
       contents: {
         parts: [
           { inlineData: { data: base64Data, mimeType: 'image/jpeg' } },
-          { text: `SYSTEM PROTOCOL: ${instruction}
-                   INPUT: Visual meal specimen.
-                   TASK: Perform deep metabolic analysis.
-                   LANGUAGE: ${lang === 'ar' ? 'Arabic' : 'English'}.
-                   OUTPUT: JSON according to schema.` }
+          { text: `TASK: Metabolic analysis for ${persona}. LANG: ${lang}. JSON ONLY.` }
         ]
       },
       config: {
         responseMimeType: "application/json",
         responseSchema: mealAnalysisSchema,
-        temperature: 0,
-        thinkingConfig: { thinkingBudget: 0 }
+        temperature: 0
       }
     });
     
-    const text = response.text;
-    if (!text) throw new Error("EMPTY_AI_RESPONSE");
-    
-    const parsed = JSON.parse(text.trim());
+    const parsed = JSON.parse(response.text || '{}');
     return {
       ...parsed,
       imageUrl: base64Image,
-      timestamp: new Date().toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-US')
+      timestamp: new Date().toLocaleString()
     };
   } catch (e: any) {
-    console.error("Analysis node failure:", e);
-    if (e.message?.includes("entity was not found") || e.message?.includes("API key") || e.message?.includes("403")) {
-      throw new Error("KEY_REBIND_REQUIRED");
+    console.error("Gemini Node Error:", e.message);
+    // Explicitly check for API key issues (Common on Vercel)
+    if (e.message?.includes("API_KEY_MISSING") || e.message?.includes("key") || e.message?.includes("403")) {
+      throw new Error("KEY_AUTH_FAILED");
     }
     throw e;
   }
 };
 
-export const generateMealPlan = async (request: MealPlanRequest, lang: string, feedback: FeedbackEntry[] = []): Promise<DayPlan | null> => {
-  if (!process.env.API_KEY) throw new Error("API_KEY_MISSING");
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  
-  const persona = request.persona || 'GENERAL';
-
+export const generateMealPlan = async (request: MealPlanRequest, lang: string): Promise<DayPlan | null> => {
   try {
+    const ai = getAIClient();
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Synthesize a 24-hour metabolic blueprint for a ${persona} profile. Goal: ${request.goal}. 
-                 Consider feedback history length: ${feedback.length}. 
-                 Return JSON with breakfast, lunch, dinner, snack (each with 'name', 'calories', 'description'), 'totalCalories', and 'advice'.
-                 Language: ${lang === 'ar' ? 'Arabic' : 'English'}.`,
-      config: {
-        responseMimeType: "application/json",
-        temperature: 0.2
-      }
+      contents: `Plan for ${request.goal}. Persona: ${request.persona}. Lang: ${lang}. JSON.`,
+      config: { responseMimeType: "application/json" }
     });
     return JSON.parse(response.text || '{}');
   } catch (e) {
-    console.error("Synthesis node failure:", e);
-    return null;
+    throw e;
   }
 };
 
 export const generateMascot = async (prompt: string): Promise<string | null> => {
-  if (!process.env.API_KEY) return null;
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
+    const ai = getAIClient();
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
-      contents: { parts: [{ text: `High-end laboratory icon: ${prompt}. Minimalist gold and white vector, luxury feel.` }] },
-      config: { imageConfig: { aspectRatio: "1:1" } }
+      contents: { parts: [{ text: prompt }] }
     });
     const parts = response.candidates?.[0]?.content?.parts;
     if (parts) {
-      for (const p of parts) {
-        if (p.inlineData) return `data:image/png;base64,${p.inlineData.data}`;
-      }
+      for (const p of parts) if (p.inlineData) return `data:image/png;base64,${p.inlineData.data}`;
     }
     return null;
-  } catch (error) { return null; }
+  } catch { return null; }
 };

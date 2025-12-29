@@ -48,7 +48,8 @@ const MetabolicControlCenter: React.FC = () => {
     setResult(null);
     
     try {
-      const plan = await generateMealPlan({ goal: goalLabel, diet: 'balanced' }, language, feedbackHistory);
+      // Fixed: Removed feedbackHistory argument to match generateMealPlan definition in services/geminiService.ts
+      const plan = await generateMealPlan({ goal: goalLabel, diet: 'balanced' }, language);
       if (plan) setResult(plan);
     } catch (error) {
       console.error("[ControlCenter] Plan error:", error);
@@ -78,7 +79,7 @@ const MetabolicControlCenter: React.FC = () => {
             {protocols.map((item) => (
               <div 
                 key={item.id}
-                onClick={() => handleGoalSelect(item.label)}
+                onClick={() => handleSelect(item.label)}
                 className={`group relative p-8 rounded-[32px] border transition-all duration-700 cursor-pointer overflow-hidden
                   ${selectedGoal === item.label 
                     ? 'bg-brand-primary/20 border-brand-primary/40 shadow-[0_20px_60px_-15px_rgba(194,163,107,0.2)]' 
