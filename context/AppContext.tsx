@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Language } from '../translations.ts';
 import { MealAnalysisResult, ViewType, Recipe, FeedbackEntry, FeedbackSignal, Theme, BioPersona } from '../types.ts';
 
@@ -41,9 +41,4 @@ export const useApp = () => {
   const context = useContext(AppContext);
   if (!context) throw new Error('useApp must be used within an AppProvider');
   return context;
-};
-
-export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Logic is handled in App.tsx directly for simplicity in this structure
-  return <>{children}</>;
 };

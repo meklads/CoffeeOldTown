@@ -3,7 +3,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Coffee Old Town | Luxury AI Health Lab</title>
     <meta name="description" content="Premium AI Bio-Hacking & Coffee Lab. Analyze meals, optimize vitality with precision AI.">
     
@@ -21,39 +21,31 @@
             },
             colors: {
               brand: {
-                dark: '#141210', 
+                dark: '#0A0A0A', 
                 primary: '#C2A36B',
                 light: '#FDFDFD',
                 gold: '#C2A36B',
                 cream: '#F7F5F2',
-                surface: '#1C1917'
+                surface: '#121212'
               }
             },
             animation: {
               'pulse-slow': 'pulse 6s cubic-bezier(0.4, 0, 0, 1) infinite',
-              'scan': 'scan 6s linear infinite',
-              'fade-in': 'fadeIn 1s ease-out forwards',
+              'scan': 'scan 3s linear infinite',
+              'fade-in': 'fadeIn 0.8s ease-out forwards',
               'spin-slow': 'spin 12s linear infinite',
-              'float-slow': 'float 25s ease-in-out infinite',
-              'float-reverse': 'float-reverse 30s ease-in-out infinite',
+              'float': 'float 6s ease-in-out infinite',
             },
             keyframes: {
               scan: {
                 '0%': { top: '0%', opacity: '0' },
-                '10%': { opacity: '1' },
-                '90%': { opacity: '1' },
+                '50%': { opacity: '1' },
                 '100%': { top: '100%', opacity: '0' },
               },
-              fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+              fadeIn: { '0%': { opacity: '0', transform: 'translateY(10px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
               float: {
-                '0%, 100%': { transform: 'translate(0, 0) scale(1)' },
-                '33%': { transform: 'translate(10%, 15%) scale(1.1)' },
-                '66%': { transform: 'translate(-5%, 10%) scale(0.9)' },
-              },
-              'float-reverse': {
-                '0%, 100%': { transform: 'translate(0, 0) scale(1)' },
-                '33%': { transform: 'translate(-15%, -10%) scale(0.95)' },
-                '66%': { transform: 'translate(10%, -15%) scale(1.05)' },
+                '0%, 100%': { transform: 'translateY(0)' },
+                '50%': { transform: 'translateY(-20px)' },
               }
             }
           }
@@ -62,75 +54,46 @@
     </script>
     <style>
       ::-webkit-scrollbar { width: 5px; }
-      ::-webkit-scrollbar-track { background: #FDFDFD; }
-      .dark ::-webkit-scrollbar-track { background: #141210; }
+      ::-webkit-scrollbar-track { background: transparent; }
       ::-webkit-scrollbar-thumb { background: #C2A36B; border-radius: 10px; }
       
-      html { scroll-behavior: smooth; }
-      body { background-color: #FDFDFD; color: #141210; overflow-x: hidden; transition: background-color 0.5s ease; }
-      .dark body { background-color: #141210; color: #FDFDFD; }
+      html, body { 
+        scroll-behavior: smooth; 
+        min-height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      
+      body { 
+        background-color: #FDFDFD; 
+        color: #0A0A0A; 
+        overflow-x: hidden;
+      }
+      
+      .dark body { 
+        background-color: #0A0A0A; 
+        color: #FDFDFD; 
+      }
       
       [dir="rtl"] { font-family: "IBM Plex Sans Arabic", sans-serif; }
       
-      .divider-container {
-        width: 100%;
-        display: flex;
-        justify-content: center;
-        padding: 60px 0;
-      }
-      .neural-divider-h {
-        height: 1px;
-        width: 140px;
-        position: relative;
-        background: linear-gradient(to right, transparent, rgba(194,163,107,0.3), transparent);
-      }
-      .neural-node-h {
-        width: 4px;
-        height: 4px;
-        background: #C2A36B;
-        border-radius: 50%;
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        box-shadow: 0 0 12px #C2A36B;
-        animation: pulseNode 3s ease-in-out infinite;
-      }
-      @keyframes pulseNode {
-        0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.3; }
-        50% { transform: translate(-50%, -50%) scale(1.8); opacity: 1; }
-      }
-
-      /* Animated Grain Effect */
-      .dark .bg-grain {
-        position: relative;
-      }
-      .dark .bg-grain::before {
+      .bg-grain::before {
         content: "";
-        position: absolute;
-        inset: 0;
-        background-image: url("https://grainy-gradients.vercel.app/noise.svg");
-        opacity: 0.04;
-        pointer-events: none;
-        z-index: 0;
-      }
-
-      /* Coffee Nebula Glows */
-      .coffee-nebula-container {
         position: fixed;
         inset: 0;
+        background-image: url("https://grainy-gradients.vercel.app/noise.svg");
+        opacity: 0.03;
+        pointer-events: none;
+        z-index: 50;
+      }
+
+      .nebula-glow {
+        position: fixed;
+        border-radius: 50%;
+        filter: blur(120px);
+        opacity: 0.1;
         pointer-events: none;
         z-index: -1;
-        overflow: hidden;
-      }
-      .nebula-glow {
-        position: absolute;
-        border-radius: 50%;
-        filter: blur(160px);
-        opacity: 0.15;
-      }
-      .dark .nebula-glow {
-        opacity: 0.12;
       }
     </style>
   <script type="importmap">

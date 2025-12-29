@@ -5,7 +5,7 @@ import { useApp } from '../context/AppContext.tsx';
 import { BioPersona, SectionId } from '../types.ts';
 
 const BioNexus: React.FC = () => {
-  const { language, scrollTo, currentPersona, setCurrentPersona } = useApp();
+  const { language, scrollTo, currentPersona, setCurrentPersona, setLastAnalysisResult } = useApp();
   const [isActivating, setIsActivating] = useState<BioPersona | null>(null);
   const isAr = language === 'ar';
 
@@ -43,14 +43,21 @@ const BioNexus: React.FC = () => {
   ];
 
   const handleSelect = (id: BioPersona) => {
-    setIsActivating(id);
-    setCurrentPersona(id);
-    
-    // محاكاة "معايرة النظام" قبل العودة للهيرو
-    setTimeout(() => {
+    if (currentPersona === id) {
       scrollTo(SectionId.PHASE_01_SCAN);
+      return;
+    }
+
+    setIsActivating(id);
+    
+    // Clear last result to force a fresh, persona-correct scan if they re-scan
+    setLastAnalysisResult(null);
+
+    setTimeout(() => {
+      setCurrentPersona(id);
       setIsActivating(null);
-    }, 1500);
+      scrollTo(SectionId.PHASE_01_SCAN);
+    }, 1200);
   };
 
   return (
@@ -75,8 +82,8 @@ const BioNexus: React.FC = () => {
              </div>
              <p className="text-sm text-brand-dark/40 dark:text-white/30 italic font-medium">
                {isAr 
-                 ? 'اختيارك لأحد هذه المسارات يعيد ضبط خوارزمية المسح الضوئي في الأعلى فوراً.' 
-                 : 'Selecting a path recalibrates the scanning algorithm above instantly.'}
+                 ? 'اختيارك لأحد هذه المسارات يعيد ضبط خوارزمية المسح الضوئي في الأعلى فوراً لتناسب احتياجاتك الطبية.' 
+                 : 'Selecting a path recalibrates the scanning algorithm instantly to match your medical requirements.'}
              </p>
           </div>
         </div>
@@ -104,10 +111,10 @@ const BioNexus: React.FC = () => {
                  <div className="absolute inset-0 z-50 bg-brand-dark/80 backdrop-blur-xl flex flex-col items-center justify-center p-8 text-center text-white animate-fade-in">
                     <Loader2 size={50} className="text-brand-primary animate-spin mb-6" />
                     <h4 className="text-3xl font-serif font-bold italic mb-3">
-                       {isAr ? 'إعادة المعايرة...' : 'Recalibrating...'}
+                       {isAr ? 'إعادة معايرة النظام...' : 'Calibrating System...'}
                     </h4>
                     <p className="text-[10px] font-black uppercase tracking-[0.5em] text-brand-primary">
-                       {isAr ? 'تحديث وحدة المسح الضوئي' : 'SYNCING SCAN UNIT'}
+                       {isAr ? `تفعيل وضع ${path.title}` : `ACTIVATING ${path.id} MODE`}
                     </p>
                  </div>
                )}

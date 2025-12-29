@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import Navbar from './components/Navbar.tsx';
 import Hero from './components/Hero.tsx';
@@ -15,7 +16,7 @@ import FAQ from './components/FAQ.tsx';
 import ContactUs from './components/ContactUs.tsx';
 import { AppContext, UserTier } from './context/AppContext.tsx';
 import { Language } from './translations.ts';
-import { MealAnalysisResult, SectionId, ViewType, Recipe, FeedbackEntry, FeedbackSignal, Theme, BioPersona } from './types.ts';
+import { MealAnalysisResult, ViewType, Recipe, FeedbackEntry, FeedbackSignal, Theme, BioPersona } from './types.ts';
 import { syncMealToCloud, fetchCloudHistory, testConnection } from './services/supabaseClient.ts';
 
 const App: React.FC = () => {
@@ -62,14 +63,10 @@ const App: React.FC = () => {
   }, [language]);
 
   useEffect(() => {
-    localStorage.setItem('ot_persona', currentPersona);
-  }, [currentPersona]);
-
-  useEffect(() => {
     const root = window.document.documentElement;
     if (theme === 'dark') {
       root.classList.add('dark');
-      root.style.backgroundColor = '#141210'; 
+      root.style.backgroundColor = '#0A0A0A'; 
     } else {
       root.classList.remove('dark');
       root.style.backgroundColor = '#FDFDFD';
@@ -101,10 +98,6 @@ const App: React.FC = () => {
     };
     initCloud();
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem('ot_metabolic_archive', JSON.stringify(history));
-  }, [history]);
 
   const incrementScans = useCallback(async (result: MealAnalysisResult) => {
     setHistory(prev => [result, ...prev]);
@@ -139,10 +132,8 @@ const App: React.FC = () => {
   }, []);
 
   const HorizontalDivider = () => (
-    <div className="divider-container">
-       <div className="neural-divider-h">
-          <div className="neural-node-h" />
-       </div>
+    <div className="w-full flex justify-center py-20 opacity-20">
+       <div className="h-px w-32 bg-gradient-to-r from-transparent via-brand-primary to-transparent" />
     </div>
   );
 
@@ -150,9 +141,8 @@ const App: React.FC = () => {
     switch(view) {
       case 'home':
         return (
-          <div className="animate-fade-in space-y-0 overflow-hidden bg-brand-light dark:bg-brand-dark bg-grain">
+          <div className="animate-fade-in flex flex-col bg-brand-light dark:bg-brand-dark bg-grain">
             <Hero />
-            <HorizontalDivider />
             <BioNexus />
             <HorizontalDivider />
             <SmartNutritionTool />
@@ -184,7 +174,7 @@ const App: React.FC = () => {
       isCloudConnected, setIsCloudConnected,
       isApiKeyLinked, setIsApiKeyLinked
     }}>
-      <div className="min-h-screen flex flex-col bg-brand-light dark:bg-brand-dark text-brand-dark dark:text-brand-light font-sans selection:bg-brand-primary/30 transition-colors duration-1000">
+      <div className="min-h-screen flex flex-col bg-brand-light dark:bg-brand-dark text-brand-dark dark:text-brand-light font-sans selection:bg-brand-primary/30 transition-colors duration-500">
         <Navbar />
         <main className="flex-grow">
           {renderContent()}
