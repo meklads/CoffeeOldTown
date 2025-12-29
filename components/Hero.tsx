@@ -11,11 +11,11 @@ const Hero: React.FC = () => {
   const [status, setStatus] = useState<'idle' | 'loading' | 'error' | 'success'>(lastAnalysisResult ? 'success' : 'idle');
   const [errorDetails, setErrorDetails] = useState<{title: string, msg: string}>({title: '', msg: ''});
   const [scanProgress, setScanProgress] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
   
   const isAr = language === 'ar';
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Key synchronization
   useEffect(() => {
     const checkKeyStatus = async () => {
       if (typeof window !== 'undefined' && window.aistudio) {
@@ -38,48 +38,46 @@ const Hero: React.FC = () => {
       try {
         await window.aistudio.openSelectKey();
         setIsApiKeyLinked(true);
-        setStatus('idle');
+        return true;
       } catch (e) {
-        console.error("Key linking cancelled");
+        console.error("Key selection failed", e);
+        return false;
       }
     }
-  };
-
-  const processFile = async (file: File) => {
-    if (!file.type.startsWith('image/')) return;
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setImage(reader.result as string);
-      setStatus('idle');
-      setScanProgress(0);
-    };
-    reader.readAsDataURL(file);
+    return false;
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) processFile(file);
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImage(reader.result as string);
+        setStatus('idle');
+      };
+      // Fixed: Property 'readAsAsDataURL' does not exist on type 'FileReader'. Corrected to 'readAsDataURL'.
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleAnalyze = async () => {
     if (!image || status === 'loading') return;
 
-    if (!isApiKeyLinked) {
+    // Check key before proceeding
+    const hasKey = typeof window !== 'undefined' && window.aistudio ? await window.aistudio.hasSelectedApiKey() : !!process.env.API_KEY;
+    
+    if (!hasKey) {
       await handleLinkKey();
-      return;
+      // Proceeding after triggering key selection as per rules (race condition mitigation)
     }
 
     setStatus('loading');
-    setScanProgress(10);
+    setScanProgress(5);
     
     try {
-      const progressTimer = setInterval(() => {
-        setScanProgress(prev => Math.min(prev + (Math.random() * 8), 95));
-      }, 400);
-
+      const interval = setInterval(() => setScanProgress(p => Math.min(p + 7, 92)), 400);
       const result = await analyzeMealImage(image, { chronicDiseases: "none", dietProgram: "general", activityLevel: "moderate", persona: currentPersona }, language);
-      
-      clearInterval(progressTimer);
+      clearInterval(interval);
       setScanProgress(100);
 
       if (result) {
@@ -88,16 +86,20 @@ const Hero: React.FC = () => {
         setStatus('success');
       }
     } catch (err: any) {
+      console.error("Scan Error:", err);
       setStatus('error');
-      if (err.message === "API_KEY_MISSING" || err.message === "KEY_REBIND_REQUIRED") {
+      
+      if (err.message === "KEY_REBIND_REQUIRED") {
         setErrorDetails({
-          title: isAr ? 'رابط API مطلوب' : 'API Link Required',
-          msg: isAr ? 'يرجى ربط مفتاح API مدفوع لتفعيل التحليل السحابي المتقدم.' : 'Please link a valid billing-enabled API key to activate advanced neural analysis.'
+          title: isAr ? 'مطلوب مفتاح مدفوع' : 'Paid Key Required',
+          msg: isAr ? 'تحليل الصور يتطلب مشروعاً بخطة دفع مفعلة. يرجى اختيار مفتاح صالح.' : 'Image analysis requires a project with an active billing plan. Please select a valid key.'
         });
+        // Automatically prompt for key selection if the entity was not found
+        await handleLinkKey();
       } else {
         setErrorDetails({
-          title: isAr ? 'فشل المسح' : 'Scan Failure',
-          msg: isAr ? 'حدث خطأ أثناء تحليل العينة. يرجى المحاولة مرة أخرى.' : 'An error occurred during specimen analysis. Please retry the scan.'
+          title: isAr ? 'فشل الاتصال' : 'Connection Failed',
+          msg: isAr ? 'تأكد من إعدادات المفتاح واتصال الإنترنت.' : 'Verify your API key settings and network connection.'
         });
       }
     }
@@ -124,8 +126,8 @@ const Hero: React.FC = () => {
                     <span className="text-[9px] font-black uppercase tracking-[0.4em]">{isAr ? 'نظام النبض 5.0' : 'PULSE SYSTEM 5.0'}</span>
                  </div>
                  <button onClick={handleLinkKey} className={`inline-flex items-center gap-3 px-4 py-2 rounded-full border transition-all ${isApiKeyLinked ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : 'bg-brand-primary/10 border-brand-primary/30 text-brand-primary animate-pulse'}`}>
-                    <Radio size={12} className={isApiKeyLinked ? 'animate-pulse' : ''} />
-                    <span className="text-[9px] font-black uppercase tracking-[0.4em]">{isApiKeyLinked ? (isAr ? 'مباشر' : 'LINK ACTIVE') : (isAr ? 'غير متصل' : 'OFFLINE')}</span>
+                    <Radio size={12} />
+                    <span className="text-[9px] font-black uppercase tracking-[0.4em]">{isApiKeyLinked ? (isAr ? 'رابط نشط' : 'LINK ACTIVE') : (isAr ? 'غير متصل' : 'OFFLINE')}</span>
                  </button>
               </div>
 
@@ -163,12 +165,7 @@ const Hero: React.FC = () => {
                       
                       {status === 'loading' && (
                         <div className="absolute inset-0 bg-brand-dark/90 backdrop-blur-2xl flex flex-col items-center justify-center p-12 text-center text-white z-50">
-                           <div className="relative mb-10">
-                              <Cpu size={80} className="text-brand-primary animate-spin-slow" />
-                              <div className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-brand-primary">
-                                {Math.round(scanProgress)}%
-                              </div>
-                           </div>
+                           <Cpu size={80} className="text-brand-primary animate-spin-slow mb-6" />
                            <h3 className="text-2xl font-serif font-bold italic tracking-widest mb-4">{isAr ? 'جاري فك التشفير...' : 'Decoding Metabolism...'}</h3>
                            <div className="w-full max-w-[200px] h-1.5 bg-white/10 rounded-full overflow-hidden mb-6">
                               <div className="h-full bg-brand-primary shadow-[0_0_10px_#C2A36B] transition-all duration-300" style={{ width: `${scanProgress}%` }} />
@@ -199,7 +196,14 @@ const Hero: React.FC = () => {
                            <AlertCircle size={48} className="text-red-500 animate-pulse mb-8" />
                            <h3 className="text-2xl font-serif font-bold mb-4">{errorDetails.title}</h3>
                            <p className="text-sm text-white/50 mb-12 italic max-w-xs leading-relaxed">{errorDetails.msg}</p>
-                           <button onClick={handleAnalyze} className="w-full py-4 bg-brand-primary text-white rounded-[25px] text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">RETRY_SCAN</button>
+                           <div className="flex flex-col gap-4 w-full max-w-[280px]">
+                              <button onClick={handleLinkKey} className="w-full py-4 bg-white/10 text-white rounded-[25px] text-[10px] font-black uppercase tracking-widest hover:bg-white/20 transition-all flex items-center justify-center gap-2">
+                                 <Settings2 size={14} /> {isAr ? 'إعادة ضبط المفتاح' : 'RESET KEY'}
+                              </button>
+                              <button onClick={handleAnalyze} className="w-full py-4 bg-brand-primary text-white rounded-[25px] text-[10px] font-black uppercase tracking-widest hover:brightness-110 transition-all">
+                                 RETRY_SCAN
+                              </button>
+                           </div>
                         </div>
                       )}
 
@@ -209,7 +213,9 @@ const Hero: React.FC = () => {
                               onClick={handleAnalyze} 
                               className={`group/scan-btn w-32 h-32 rounded-full flex items-center justify-center text-white shadow-xl hover:shadow-brand-primary/40 hover:scale-105 active:scale-95 transition-all duration-500 relative overflow-hidden ${personaConfigs[currentPersona].color} hover:rotate-6 active:rotate-0`}
                             >
+                               {/* Gradient Transition: From Brand Gold (#C2A36B) to Brand Emerald (#2ECC71) on Click */}
                                <div className="absolute inset-0 bg-gradient-to-br from-[#C2A36B] to-[#2ECC71] opacity-0 group-active/scan-btn:opacity-100 transition-opacity duration-300" />
+                               
                                <div className="relative z-10 flex flex-col items-center gap-1">
                                   <BrainCircuit size={48} className="group-hover/scan-btn:scale-110 transition-transform duration-500" />
                                   <span className="text-[7px] font-black uppercase tracking-widest opacity-60">SCAN</span>
