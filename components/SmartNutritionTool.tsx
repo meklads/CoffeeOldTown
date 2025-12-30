@@ -1,14 +1,14 @@
 
 import React, { useState, useRef } from 'react';
-import { ShieldPlus, Zap, Activity, Sun, CloudSun, Moon, ArrowUpRight, BrainCircuit, AlertCircle, Sparkles, Atom, RefreshCw, ChevronRight, Fingerprint } from 'lucide-react';
+import { ShieldPlus, Zap, Activity, Sun, CloudSun, Moon, ArrowUpRight, BrainCircuit, AlertCircle, Sparkles, Atom, RefreshCw, ChevronRight, Fingerprint, Link2 } from 'lucide-react';
 import { SectionId, DayPlan } from '../types.ts';
 import { generateMealPlan } from '../services/geminiService.ts';
 import { useApp } from '../context/AppContext.tsx';
 
 const SmartNutritionTool: React.FC = () => {
-  const { selectedGoal, setSelectedGoal, feedbackHistory, language, currentPersona } = useApp();
+  const { selectedGoal, setSelectedGoal, feedbackHistory, language, currentPersona, setIsApiKeyLinked } = useApp();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errorType, setErrorType] = useState<'GENERIC' | 'AUTH' | null>(null);
   const [result, setResult] = useState<DayPlan | null>(null);
   const chamberRef = useRef<HTMLDivElement>(null);
 
@@ -20,15 +20,24 @@ const SmartNutritionTool: React.FC = () => {
     { id: 'immunity', label: isAr ? 'تعزيز المناعة' : 'Immunity Boost', icon: <ShieldPlus size={22} />, img: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800&q=80', color: 'border-orange-500/50', accent: 'text-orange-500' }
   ];
 
+  const handleLinkKey = async () => {
+    if (typeof window !== 'undefined' && window.aistudio) {
+      try {
+        await window.aistudio.openSelectKey();
+        setIsApiKeyLinked(true);
+        if (selectedGoal) handleGenerate(selectedGoal);
+      } catch (e) { console.error(e); }
+    }
+  };
+
   const handleGenerate = async (goalLabel: string) => {
     if (loading) return;
     setSelectedGoal(goalLabel);
     setLoading(true);
-    setError(null);
+    setErrorType(null);
     setResult(null);
 
     try {
-      // Fixed: Removed feedbackHistory argument to match generateMealPlan definition in services/geminiService.ts
       const plan = await generateMealPlan(
         { goal: goalLabel, diet: 'balanced', persona: currentPersona }, 
         language
@@ -48,7 +57,11 @@ const SmartNutritionTool: React.FC = () => {
       }
     } catch (err: any) {
       console.error("Synthesis failed:", err);
-      setError(isAr ? 'عذراً، الخادم مشغول حالياً. يرجى المحاولة مرة أخرى.' : 'Server is currently busy. Please try again.');
+      if (err.message === "KEY_AUTH_FAILED") {
+        setErrorType('AUTH');
+      } else {
+        setErrorType('GENERIC');
+      }
     } finally {
       setLoading(false);
     }
@@ -121,12 +134,27 @@ const SmartNutritionTool: React.FC = () => {
                        <p className="text-[10px] text-brand-primary/40 font-black uppercase tracking-[0.5em]">{isAr ? 'ربط القنوات العصبية' : 'Linking Neural Channels'}</p>
                     </div>
                   </div>
-                ) : error ? (
+                ) : errorType === 'AUTH' ? (
+                   <div className="absolute inset-0 flex flex-col items-center justify-center p-12 text-center space-y-8 animate-fade-in bg-brand-dark/95 text-white z-50">
+                     <AlertCircle size={70} className="text-brand-primary animate-bounce" />
+                     <div className="space-y-4">
+                        <h4 className="text-3xl font-serif font-bold">{isAr ? 'مطلوب ربط المفتاح' : 'Auth Required'}</h4>
+                        <p className="text-white/50 text-base font-medium italic max-w-sm">
+                          {isAr ? 'بيئة فيرسل تفتقد لمفتاح API. يرجى الربط يدوياً للاستمرار.' : 'Vercel environment is missing API Key. Please link manually to proceed.'}
+                        </p>
+                     </div>
+                     <button onClick={handleLinkKey} className="flex items-center gap-4 px-12 py-5 bg-brand-primary text-white rounded-[25px] font-black text-[10px] tracking-[0.4em] hover:scale-105 transition-all shadow-glow">
+                        <Link2 size={18} /> {isAr ? 'ربط مفتاح API' : 'LINK API KEY'}
+                     </button>
+                   </div>
+                ) : errorType === 'GENERIC' ? (
                    <div className="absolute inset-0 flex flex-col items-center justify-center p-12 text-center space-y-8 animate-fade-in">
                      <AlertCircle size={70} className="text-red-500/50 animate-bounce" />
                      <div className="space-y-2">
                         <h4 className="text-3xl font-serif font-bold text-red-500">{isAr ? 'عذراً، حدث تأخير' : 'Synthesis Delayed'}</h4>
-                        <p className="text-brand-dark/40 dark:text-white/30 text-base font-medium italic">{error}</p>
+                        <p className="text-brand-dark/40 dark:text-white/30 text-base font-medium italic">
+                          {isAr ? 'الخادم مشغول حالياً. حاول الإعادة.' : 'Server busy. Please try again.'}
+                        </p>
                      </div>
                      <button onClick={() => selectedGoal && handleGenerate(selectedGoal)} className="px-12 py-5 bg-brand-dark text-white rounded-[25px] font-black text-[10px] tracking-[0.4em] hover:bg-brand-primary transition-all shadow-glow">
                         {isAr ? 'إعادة المحاولة' : 'RETRY NEURAL LINK'}

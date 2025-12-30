@@ -1,43 +1,55 @@
 
 import React, { useState, useRef } from 'react';
-import { ShieldPlus, Zap, Activity, FlaskConical, ArrowUpRight, Sun, CloudSun, Moon, Waves, Beaker } from 'lucide-react';
+import { ShieldPlus, Zap, Activity, FlaskConical, ArrowUpRight, Sun, CloudSun, Moon, Waves, Beaker, AlertCircle, Link2 } from 'lucide-react';
 import { SectionId, DayPlan } from '../types.ts';
 import { generateMealPlan } from '../services/geminiService.ts';
 import { useApp } from '../context/AppContext.tsx';
 
 const MetabolicControlCenter: React.FC = () => {
-  const { selectedGoal, setSelectedGoal, feedbackHistory, language } = useApp();
+  const { selectedGoal, setSelectedGoal, language, setIsApiKeyLinked } = useApp();
   const [loading, setLoading] = useState(false);
+  const [errorType, setErrorType] = useState<'AUTH' | 'GENERIC' | null>(null);
   const [result, setResult] = useState<DayPlan | null>(null);
   
   const isGeneratingRef = useRef(false);
+  const isAr = language === 'ar';
 
   const protocols = [
     { 
       id: 'immunity', 
-      label: language === 'ar' ? 'تعزيز المناعة' : 'Immunity Boost', 
+      label: isAr ? 'تعزيز المناعة' : 'Immunity Boost', 
       icon: <ShieldPlus size={18} />, 
       img: 'https://images.unsplash.com/photo-1576086213369-97a306d36557?w=800&q=80', 
       tag: 'RESILIENCE',
-      desc: language === 'ar' ? 'تحسين الدفاع الخلوي.' : 'Cellular defense optimization.'
+      desc: isAr ? 'تحسين الدفاع الخلوي.' : 'Cellular defense optimization.'
     },
     { 
       id: 'recovery', 
-      label: language === 'ar' ? 'الاستشفاء الحيوي' : 'Bio-Recovery', 
+      label: isAr ? 'الاستشفاء الحيوي' : 'Bio-Recovery', 
       icon: <Activity size={18} />, 
       img: 'https://images.unsplash.com/photo-1550581190-9c1c48d21d6c?w=800&q=80', 
       tag: 'REPAIR',
-      desc: language === 'ar' ? 'تنظيف المخلفات الأيضية.' : 'Metabolic waste clearance.'
+      desc: isAr ? 'تنظيف المخلفات الأيضية.' : 'Metabolic waste clearance.'
     },
     { 
       id: 'focus', 
-      label: language === 'ar' ? 'التركيز الذهني' : 'Neural Focus', 
+      label: isAr ? 'التركيز الذهني' : 'Neural Focus', 
       icon: <Zap size={18} />, 
       img: 'https://images.unsplash.com/photo-1633167606207-d840b5070fc2?w=800&q=80', 
       tag: 'COGNITION',
-      desc: language === 'ar' ? 'تعزيز القدرة المشبكية.' : 'Synaptic throughput enhancement.'
+      desc: isAr ? 'تعزيز القدرة المشبكية.' : 'Synaptic throughput enhancement.'
     }
   ];
+
+  const handleLinkKey = async () => {
+    if (typeof window !== 'undefined' && window.aistudio) {
+      try {
+        await window.aistudio.openSelectKey();
+        setIsApiKeyLinked(true);
+        if (selectedGoal) handleGoalSelect(selectedGoal);
+      } catch (e) { console.error(e); }
+    }
+  };
 
   const handleGoalSelect = async (goalLabel: string) => {
     if (loading || isGeneratingRef.current) return;
@@ -46,13 +58,18 @@ const MetabolicControlCenter: React.FC = () => {
     setSelectedGoal(goalLabel);
     setLoading(true);
     setResult(null);
+    setErrorType(null);
     
     try {
-      // Fixed: Removed feedbackHistory argument to match generateMealPlan definition in services/geminiService.ts
       const plan = await generateMealPlan({ goal: goalLabel, diet: 'balanced' }, language);
       if (plan) setResult(plan);
-    } catch (error) {
+    } catch (error: any) {
       console.error("[ControlCenter] Plan error:", error);
+      if (error.message === "KEY_AUTH_FAILED") {
+        setErrorType('AUTH');
+      } else {
+        setErrorType('GENERIC');
+      }
     } finally {
       setLoading(false);
       isGeneratingRef.current = false;
@@ -67,7 +84,7 @@ const MetabolicControlCenter: React.FC = () => {
         <div className="flex flex-col items-center text-center mb-16 space-y-4">
            <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-brand-primary/10 text-brand-primary rounded-full border border-brand-primary/20 backdrop-blur-md">
              <FlaskConical size={12} className="animate-pulse" />
-             <span className="text-[8px] font-black uppercase tracking-[0.5em]">{language === 'ar' ? 'المرحلة 02: التخليق الأيضي' : 'PHASE 02: METABOLIC SYNTHESIS'}</span>
+             <span className="text-[8px] font-black uppercase tracking-[0.5em]">{isAr ? 'المرحلة 02: التخليق الأيضي' : 'PHASE 02: METABOLIC SYNTHESIS'}</span>
            </div>
            <h2 className="text-4xl md:text-6xl font-serif font-bold text-white tracking-tighter">
              Control <span className="text-brand-primary italic">Center.</span>
@@ -79,7 +96,6 @@ const MetabolicControlCenter: React.FC = () => {
             {protocols.map((item) => (
               <div 
                 key={item.id}
-                // Fix: Changing handleSelect to handleGoalSelect to match the function definition
                 onClick={() => handleGoalSelect(item.label)}
                 className={`group relative p-8 rounded-[32px] border transition-all duration-700 cursor-pointer overflow-hidden
                   ${selectedGoal === item.label 
@@ -103,7 +119,7 @@ const MetabolicControlCenter: React.FC = () => {
           </div>
 
           <div className="lg:col-span-8">
-             <div className="bg-white/[0.02] border border-white/5 rounded-[48px] p-8 md:p-12 relative min-h-[520px] flex flex-col shadow-inner">
+             <div className="bg-white/[0.02] border border-white/5 rounded-[48px] p-8 md:p-12 relative min-h-[520px] flex flex-col shadow-inner overflow-hidden">
                 {loading ? (
                   <div className="flex-grow flex flex-col items-center justify-center text-center space-y-8">
                      <div className="relative">
@@ -111,9 +127,24 @@ const MetabolicControlCenter: React.FC = () => {
                         <Beaker size={24} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-brand-primary animate-pulse" />
                      </div>
                      <p className="text-[10px] font-black text-brand-primary uppercase tracking-[0.8em] animate-pulse">
-                        {language === 'ar' ? 'جاري التخليق...' : 'SYNTHESIZING...'}
+                        {isAr ? 'جاري التخليق...' : 'SYNTHESIZING...'}
                      </p>
                   </div>
+                ) : errorType === 'AUTH' ? (
+                   <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center space-y-6 bg-brand-dark/95 z-40 animate-fade-in">
+                      <AlertCircle size={48} className="text-brand-primary animate-pulse" />
+                      <h3 className="text-xl font-serif font-bold text-white">{isAr ? 'مطلوب ربط المفتاح' : 'Key Link Required'}</h3>
+                      <p className="text-xs text-white/40 italic max-w-xs">{isAr ? 'يرجى ربط مفتاح API يدوياً لتجاوز قيود بيئة فيرسل.' : 'Please link API Key manually to bypass Vercel environment restrictions.'}</p>
+                      <button onClick={handleLinkKey} className="flex items-center gap-3 px-8 py-4 bg-brand-primary text-white rounded-2xl font-black text-[9px] tracking-widest hover:scale-105 transition-all">
+                         <Link2 size={16} /> {isAr ? 'ربط المفتاح الآن' : 'LINK KEY NOW'}
+                      </button>
+                   </div>
+                ) : errorType === 'GENERIC' ? (
+                   <div className="flex-grow flex flex-col items-center justify-center text-center space-y-6">
+                      <AlertCircle size={48} className="text-red-500/50" />
+                      <p className="text-xs text-white/40">{isAr ? 'حدث خطأ غير متوقع.' : 'An unexpected error occurred.'}</p>
+                      <button onClick={() => selectedGoal && handleGoalSelect(selectedGoal)} className="px-6 py-3 border border-white/10 rounded-xl text-[10px] font-black text-white hover:border-brand-primary">RETRY</button>
+                   </div>
                 ) : result ? (
                   <div className="animate-fade-in space-y-12">
                      <div className="flex flex-col md:flex-row justify-between items-end gap-6 border-b border-white/5 pb-8">
@@ -154,7 +185,7 @@ const MetabolicControlCenter: React.FC = () => {
                   <div className="flex-grow flex flex-col items-center justify-center text-center space-y-8 opacity-20 grayscale">
                      <Waves size={64} strokeWidth={1} className="text-brand-primary" />
                      <p className="text-[9px] font-black text-white uppercase tracking-[0.6em]">
-                        {language === 'ar' ? 'بانتظار اختيار البروتوكول...' : 'AWAITING NODE ACTIVATION...'}
+                        {isAr ? 'بانتظار اختيار البروتوكول...' : 'AWAITING NODE ACTIVATION...'}
                      </p>
                   </div>
                 )}

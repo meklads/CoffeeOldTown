@@ -33,10 +33,15 @@ const mealAnalysisSchema = {
   required: ["ingredients", "totalCalories", "healthScore", "macros", "summary", "personalizedAdvice"]
 };
 
-// HELPER: Safeguard API Key access
+// HELPER: Safeguard API Key access for client-side environments like Vercel
 const getAIClient = () => {
+  // Try to get key from environment
   const key = process.env.API_KEY;
-  if (!key) throw new Error("API_KEY_MISSING");
+  if (!key) {
+    const err = new Error("API_KEY_MISSING");
+    (err as any).code = 'AUTH_REQUIRED';
+    throw err;
+  }
   return new GoogleGenAI({ apiKey: key });
 };
 
@@ -68,9 +73,7 @@ export const analyzeMealImage = async (base64Image: string, profile: UserHealthP
       timestamp: new Date().toLocaleString()
     };
   } catch (e: any) {
-    console.error("Gemini Node Error:", e.message);
-    // Explicitly check for API key issues (Common on Vercel)
-    if (e.message?.includes("API_KEY_MISSING") || e.message?.includes("key") || e.message?.includes("403")) {
+    if (e.code === 'AUTH_REQUIRED' || e.message?.includes('key') || e.message?.includes('403')) {
       throw new Error("KEY_AUTH_FAILED");
     }
     throw e;
@@ -86,7 +89,10 @@ export const generateMealPlan = async (request: MealPlanRequest, lang: string): 
       config: { responseMimeType: "application/json" }
     });
     return JSON.parse(response.text || '{}');
-  } catch (e) {
+  } catch (e: any) {
+    if (e.code === 'AUTH_REQUIRED' || e.message?.includes('key') || e.message?.includes('403')) {
+      throw new Error("KEY_AUTH_FAILED");
+    }
     throw e;
   }
 };
