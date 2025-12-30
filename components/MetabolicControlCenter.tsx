@@ -79,7 +79,8 @@ const MetabolicControlCenter: React.FC = () => {
             {protocols.map((item) => (
               <div 
                 key={item.id}
-                onClick={() => handleSelect(item.label)}
+                // Fix: Changing handleSelect to handleGoalSelect to match the function definition
+                onClick={() => handleGoalSelect(item.label)}
                 className={`group relative p-8 rounded-[32px] border transition-all duration-700 cursor-pointer overflow-hidden
                   ${selectedGoal === item.label 
                     ? 'bg-brand-primary/20 border-brand-primary/40 shadow-[0_20px_60px_-15px_rgba(194,163,107,0.2)]' 
